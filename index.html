@@ -55,7 +55,8 @@
         for (let i = 1; i <= series.max; i++) {
           extensions.forEach(ext => {
             const fileName = `${series.prefix} (${i}).${ext}`;
-            const imgPath = `images/${fileName}`;
+            // Recherche directement à la racine (plus de dossier images/)
+            const imgPath = fileName;
             const baseKey = `${series.prefix}_${i}`.toLowerCase();
 
             const img = new Image();
