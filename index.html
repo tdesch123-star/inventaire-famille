@@ -77,14 +77,15 @@
 
       PHOTO_CONFIG.forEach(series => {
         for (let i = 1; i <= series.count; i++) {
-          const fileNameJPG = `${series.prefix} (${i}).JPG`;
-          const fileNameJpg = `${series.prefix} (${i}).jpg`;
-
+          const fileNameBase = `${series.prefix} (${i})`;
+          
           items.push({
             id: idCounter++,
-            name: `${series.prefix} (${i})`,
-            url: encodeURIComponent(fileNameJPG).replace(/%20/g, ' '),
-            fallbackUrl: encodeURIComponent(fileNameJpg).replace(/%20/g, ' '),
+            name: fileNameBase,
+            url: `${encodeURIComponent(fileNameBase)}.JPG`,
+            fallbackUrl: `${encodeURIComponent(fileNameBase)}.jpg`,
+            fallbackUrl2: `${encodeURIComponent(fileNameBase)}.jpeg`,
+            fallbackUrl3: `${encodeURIComponent(fileNameBase)}.png`,
             category: series.category,
             availableLater: false,
             deleted: false,
@@ -197,7 +198,6 @@
         return;
       }
 
-      // Exclusion des items supprimés
       const activeItems = items.filter(i => !i.deleted);
 
       const filteredItems = activeItems.filter(item => {
@@ -279,7 +279,7 @@
             ${filteredItems.map((item) => `
               <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700/60 shadow-lg flex flex-col relative group">
                 <div class="relative aspect-square bg-slate-950 overflow-hidden cursor-pointer" onclick="openLightboxByItem(${item.id})">
-                  <img src="${item.url}" onerror="this.onerror=null; this.src='${item.fallbackUrl}';" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy">
+                  <img src="${item.url}" onerror="this.onerror=null; this.src='${item.fallbackUrl}'; this.onerror=function(){this.src='${item.fallbackUrl2}'; this.onerror=function(){this.src='${item.fallbackUrl3}';};};" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy">
                   
                   ${item.availableLater ? `
                     <div class="absolute top-3 right-3 z-10 flex items-center justify-center" title="Disponible ultérieurement">
