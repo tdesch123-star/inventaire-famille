@@ -6,10 +6,28 @@
   <title>Inventaire Familial Privé</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
   <div id="app"></div>
   <script>
+    // Configuration Firebase avec vos identifiants exacts
+    const firebaseConfig = {
+      apiKey: "AIzaSyA4hz8CgX9UZ25DNzY_BqgAwIWzTTAl248",
+      authDomain: "inventaire-famille-552d6.firebaseapp.com",
+      databaseURL: "https://inventaire-famille-552d6-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "inventaire-famille-552d6",
+      storageBucket: "inventaire-famille-552d6.firebasestorage.app",
+      messagingSenderId: "78925408011",
+      appId: "1:78925408011:web:ebdbe032908eb385b9a40e"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
     const CATEGORIES = [
       "Meuble", 
       "Peinture", 
@@ -37,7 +55,6 @@
       "Jean-Pascal": ["Jean-Pascal", "Jean-Pascal enfant"]
     };
 
-    // Nombre exact d'images par série
     const PHOTO_CONFIG = [
       { prefix: "Décoration", count: 77, category: "Décoration" },
       { prefix: "Mobilier", count: 70, category: "Meuble" },
@@ -50,7 +67,7 @@
 
     let items = [];
     let currentUser = null;
-    let activeFilterCategory = "Tous"; // Peut être une catégorie ou "DISPO_LATER"
+    let activeFilterCategory = "Tous";
     let activeFilterMember = "Tous";
     let lightboxIndex = null;
     let editingCategoryItemId = null;
@@ -69,11 +86,35 @@
             name: `${series.prefix} (${i})`,
             url: encodeURIComponent(fileNameJPG).replace(/%20/g, ' '),
             fallbackUrl: encodeURIComponent(fileNameJpg).replace(/%20/g, ' '),
-            category: series.category, // La catégorie reste inchangée !
-            availableLater: false,     // Critère additionnel
+            category: series.category,
+            availableLater: false,
             interests: []
           });
         }
+      });
+    }
+
+    function initRealtimeSync() {
+      db.ref('inventory').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          items.forEach(item => {
+            if (data[item.id]) {
+              item.interests = data[item.id].interests || [];
+              item.availableLater = data[item.id].availableLater || false;
+              if (data[item.id].category) item.category = data[item.id].category;
+            }
+          });
+          render();
+        }
+      });
+    }
+
+    function saveItemState(item) {
+      db.ref('inventory/' + item.id).set({
+        interests: item.interests,
+        availableLater: item.availableLater,
+        category: item.category
       });
     }
 
@@ -87,12 +128,34 @@
     }
 
     function toggleAvailableLater(id) {
-      if (currentUser !== "Thierry") return; // Action réservée exclusivement à Thierry
+      if (currentUser !== "Thierry") return;
       const item = items.find(i => i.id === id);
       if (item) {
         item.availableLater = !item.availableLater;
-        render();
+        saveItemState(item);
       }
+    }
+
+    function toggleInterest(id, member) {
+      if (!canControl(member)) return;
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+      if (item.interests.includes(member)) {
+        item.interests = item.interests.filter(m => m !== member);
+      } else {
+        item.interests.push(member);
+      }
+      saveItemState(item);
+    }
+
+    function selectCategory(cat) {
+      const item = items.find(i => i.id === editingCategoryItemId);
+      if (item) {
+        item.category = cat;
+        saveItemState(item);
+      }
+      editingCategoryItemId = null;
+      render();
     }
 
     function render() {
@@ -192,7 +255,6 @@
               <button onclick="setCategoryFilter('${c}')" class="px-3 py-1.5 rounded-full text-xs font-semibold ${activeFilterCategory === c ? 'bg-amber-500 text-slate-900 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">${c}</button>
             `).join('')}
 
-            <!-- Filtre spécial pour afficher les objet 'Disponible ultérieurement' -->
             <button onclick="setCategoryFilter('DISPO_LATER')" class="px-3 py-1.5 rounded-full text-xs font-semibold transition flex items-center gap-1.5 ${activeFilterCategory === 'DISPO_LATER' ? 'bg-yellow-400 text-slate-950 font-bold shadow' : 'bg-yellow-400/10 text-yellow-300 border border-yellow-400/30 hover:bg-yellow-400/20'}">
               <span>🟡 Disponibles ultérieurement</span>
               <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'DISPO_LATER' ? 'bg-slate-950/30 text-slate-950' : 'bg-yellow-400/20 text-yellow-300'}">${dispoLaterCount}</span>
@@ -205,7 +267,6 @@
                 <div class="relative aspect-square bg-slate-950 overflow-hidden cursor-pointer" onclick="openLightboxByItem(${item.id})">
                   <img src="${item.url}" onerror="this.onerror=null; this.src='${item.fallbackUrl}';" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy">
                   
-                  <!-- Gros point jaune clignotant visible par tout le monde si 'availableLater' est vrai -->
                   ${item.availableLater ? `
                     <div class="absolute top-3 right-3 z-10 flex items-center justify-center" title="Disponible ultérieurement">
                       <span class="relative flex h-6 w-6">
@@ -219,11 +280,9 @@
                 <div class="p-3 flex-1 flex flex-col justify-between space-y-3">
                   <div>
                     <div class="flex justify-between items-center gap-1 mb-2">
-                      <!-- La catégorie réelle est affichée ici -->
                       <span class="text-xs font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded truncate">${item.category}</span>
                       
                       <div class="flex items-center gap-1">
-                        <!-- Seul Thierry voit le bouton rouge sous l'image pour activer/désactiver le statut -->
                         ${currentUser === "Thierry" ? `
                           <button 
                             onclick="toggleAvailableLater(${item.id})" 
@@ -324,25 +383,6 @@
     function openCategoryModal(id) { editingCategoryItemId = id; render(); }
     function closeCategoryModal() { editingCategoryItemId = null; render(); }
 
-    function selectCategory(cat) {
-      const item = items.find(i => i.id === editingCategoryItemId);
-      if (item) item.category = cat;
-      editingCategoryItemId = null;
-      render();
-    }
-
-    function toggleInterest(id, member) {
-      if (!canControl(member)) return;
-      const item = items.find(i => i.id === id);
-      if (!item) return;
-      if (item.interests.includes(member)) {
-        item.interests = item.interests.filter(m => m !== member);
-      } else {
-        item.interests.push(member);
-      }
-      render();
-    }
-
     function exportCSV() {
       if (items.length === 0) return alert("Aucun objet à exporter.");
       let csvContent = "\uFEFFNom de l'objet;Catégorie;Disponible ultérieurement;Personnes intéressées;Nombre d'intéressés\n";
@@ -361,6 +401,7 @@
     }
 
     buildInventory();
+    initRealtimeSync();
     render();
   </script>
 </body>
