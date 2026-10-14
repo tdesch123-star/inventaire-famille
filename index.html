@@ -14,7 +14,6 @@
 <body class="bg-slate-900 text-slate-100 min-h-screen">
   <div id="app"></div>
   <script>
-    // Configuration Firebase avec vos identifiants exacts
     const firebaseConfig = {
       apiKey: "AIzaSyA4hz8CgX9UZ25DNzY_BqgAwIWzTTAl248",
       authDomain: "inventaire-famille-552d6.firebaseapp.com",
@@ -112,8 +111,8 @@
 
     function saveItemState(item) {
       db.ref('inventory/' + item.id).set({
-        interests: item.interests,
-        availableLater: item.availableLater,
+        interests: item.interests || [],
+        availableLater: !!item.availableLater,
         category: item.category
       });
     }
