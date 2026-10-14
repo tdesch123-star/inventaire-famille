@@ -50,7 +50,7 @@
 
     let items = [];
     let currentUser = null;
-    let activeFilterCategory = "Tous";
+    let activeFilterCategory = "Tous"; // Peut être une catégorie ou "DISPO_LATER"
     let activeFilterMember = "Tous";
     let lightboxIndex = null;
     let editingCategoryItemId = null;
@@ -69,8 +69,8 @@
             name: `${series.prefix} (${i})`,
             url: encodeURIComponent(fileNameJPG).replace(/%20/g, ' '),
             fallbackUrl: encodeURIComponent(fileNameJpg).replace(/%20/g, ' '),
-            category: series.category,
-            availableLater: false, // Sous-catégorie
+            category: series.category, // La catégorie reste inchangée !
+            availableLater: false,     // Critère additionnel
             interests: []
           });
         }
@@ -124,10 +124,20 @@
       }
 
       const filteredItems = items.filter(item => {
-        const matchCategory = (activeFilterCategory === 'Tous' || item.category === activeFilterCategory);
+        let matchCategory = false;
+        if (activeFilterCategory === 'Tous') {
+          matchCategory = true;
+        } else if (activeFilterCategory === 'DISPO_LATER') {
+          matchCategory = item.availableLater;
+        } else {
+          matchCategory = (item.category === activeFilterCategory);
+        }
+
         const matchMember = (activeFilterMember === 'Tous' || item.interests.includes(activeFilterMember));
         return matchCategory && matchMember;
       });
+
+      const dispoLaterCount = items.filter(i => i.availableLater).length;
 
       app.innerHTML = `
         <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-30 p-4 shadow-lg">
@@ -175,11 +185,18 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-2 pb-2 border-b border-slate-800">
-            <span class="text-xs text-slate-400 font-semibold mr-1">Catégorie :</span>
+            <span class="text-xs text-slate-400 font-semibold mr-1">Filtre :</span>
             <button onclick="setCategoryFilter('Tous')" class="px-3 py-1.5 rounded-full text-xs font-semibold ${activeFilterCategory === 'Tous' ? 'bg-amber-500 text-slate-900 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">Toutes</button>
+            
             ${CATEGORIES.map(c => `
               <button onclick="setCategoryFilter('${c}')" class="px-3 py-1.5 rounded-full text-xs font-semibold ${activeFilterCategory === c ? 'bg-amber-500 text-slate-900 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">${c}</button>
             `).join('')}
+
+            <!-- Filtre spécial pour afficher les objet 'Disponible ultérieurement' -->
+            <button onclick="setCategoryFilter('DISPO_LATER')" class="px-3 py-1.5 rounded-full text-xs font-semibold transition flex items-center gap-1.5 ${activeFilterCategory === 'DISPO_LATER' ? 'bg-yellow-400 text-slate-950 font-bold shadow' : 'bg-yellow-400/10 text-yellow-300 border border-yellow-400/30 hover:bg-yellow-400/20'}">
+              <span>🟡 Disponibles ultérieurement</span>
+              <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'DISPO_LATER' ? 'bg-slate-950/30 text-slate-950' : 'bg-yellow-400/20 text-yellow-300'}">${dispoLaterCount}</span>
+            </button>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -188,7 +205,7 @@
                 <div class="relative aspect-square bg-slate-950 overflow-hidden cursor-pointer" onclick="openLightboxByItem(${item.id})">
                   <img src="${item.url}" onerror="this.onerror=null; this.src='${item.fallbackUrl}';" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy">
                   
-                  <!-- Gros point jaune visible par tout le monde si disponible plus tard -->
+                  <!-- Gros point jaune clignotant visible par tout le monde si 'availableLater' est vrai -->
                   ${item.availableLater ? `
                     <div class="absolute top-3 right-3 z-10 flex items-center justify-center" title="Disponible ultérieurement">
                       <span class="relative flex h-6 w-6">
@@ -202,22 +219,23 @@
                 <div class="p-3 flex-1 flex flex-col justify-between space-y-3">
                   <div>
                     <div class="flex justify-between items-center gap-1 mb-2">
+                      <!-- La catégorie réelle est affichée ici -->
                       <span class="text-xs font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded truncate">${item.category}</span>
                       
                       <div class="flex items-center gap-1">
-                        <!-- Seul Thierry a accès au bouton de gestion -->
+                        <!-- Seul Thierry voit le bouton rouge sous l'image pour activer/désactiver le statut -->
                         ${currentUser === "Thierry" ? `
                           <button 
                             onclick="toggleAvailableLater(${item.id})" 
                             class="text-[10px] font-bold px-2 py-1 rounded transition flex items-center gap-1 border ${
                               item.availableLater 
-                                ? 'bg-yellow-500 hover:bg-yellow-400 text-slate-950 border-yellow-400 shadow' 
-                                : 'bg-slate-700/60 hover:bg-slate-600 text-slate-300 border-slate-600/50'
+                                ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow' 
+                                : 'bg-slate-700/60 hover:bg-rose-600 hover:text-white text-slate-300 border-slate-600/50'
                             }"
-                            title="Basculer sous-catégorie 'Disponible plus tard'"
+                            title="Indiquer disponible ultérieurement"
                           >
                             <i class="fa-solid fa-clock"></i>
-                            <span>${item.availableLater ? 'Marqué Dispo plus tard' : 'Dispo plus tard'}</span>
+                            <span>${item.availableLater ? 'Dispo ultérieurement' : 'Dispo ultérieurement'}</span>
                           </button>
                         ` : ''}
 
