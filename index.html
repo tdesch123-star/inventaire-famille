@@ -10,7 +10,7 @@
 <body class="bg-slate-900 text-slate-100 min-h-screen">
   <div id="app"></div>
   <script>
-    const CATEGORIES = ["Meuble", "Peinture-Gravure", "Décoration", "Vaisselle Argenterie", "Vaisselle divers", "Électroménager", "Divers", "Non classé"];
+    const CATEGORIES = ["Meuble", "Peinture", "Décoration", "Vaisselle Argenterie", "Vaisselle divers", "Électroménager", "Divers", "Non classé"];
     
     let family = [
       "Thierry", "Thierry enfant",
@@ -28,16 +28,15 @@
       "Jean-Pascal": ["Jean-Pascal", "Jean-Pascal enfant"]
     };
 
-    const PHOTO_SERIES = [
-      { prefix: "Décoration", max: 120, category: "Décoration" },
-      { prefix: "Mobilier", max: 120, category: "Meuble" },
-      { prefix: "Meuble", max: 120, category: "Meuble" },
-      { prefix: "Peinture-Gravure", max: 120, category: "Peinture-Gravure" },
-      { prefix: "Tableau", max: 120, category: "Peinture-Gravure" },
-      { prefix: "Vaisselle-Argenterie", max: 120, category: "Vaisselle Argenterie" },
-      { prefix: "Vaisselle divers", max: 120, category: "Vaisselle divers" },
-      { prefix: "Electromenager", max: 120, category: "Électroménager" },
-      { prefix: "Divers", max: 120, category: "Divers" }
+    // Nombre exact d'images par série avec la mise à jour 'Peinture'
+    const PHOTO_CONFIG = [
+      { prefix: "Décoration", count: 77, category: "Décoration" },
+      { prefix: "Mobilier", count: 70, category: "Meuble" },
+      { prefix: "Vaisselle-Argenterie", count: 66, category: "Vaisselle Argenterie" },
+      { prefix: "Divers", count: 40, category: "Divers" },
+      { prefix: "Peinture", count: 28, category: "Peinture" },
+      { prefix: "Vaisselle divers", count: 20, category: "Vaisselle divers" },
+      { prefix: "Electromenager", count: 8, category: "Électroménager" }
     ];
 
     let items = [];
@@ -47,34 +46,22 @@
     let lightboxIndex = null;
     let editingCategoryItemId = null;
 
-    function loadLocalImages() {
+    function buildInventory() {
+      items = [];
       let idCounter = 1;
-      const extensions = ["JPG", "jpg", "jpeg", "PNG", "png"];
 
-      PHOTO_SERIES.forEach(series => {
-        for (let i = 1; i <= series.max; i++) {
-          extensions.forEach(ext => {
-            const fileName = `${series.prefix} (${i}).${ext}`;
-            // Recherche directement à la racine (plus de dossier images/)
-            const imgPath = fileName;
-            const baseKey = `${series.prefix}_${i}`.toLowerCase();
+      PHOTO_CONFIG.forEach(series => {
+        for (let i = 1; i <= series.count; i++) {
+          const fileNameJPG = `${series.prefix} (${i}).JPG`;
+          const fileNameJpg = `${series.prefix} (${i}).jpg`;
 
-            const img = new Image();
-            img.src = imgPath;
-            img.onload = function() {
-              const alreadyExists = items.some(item => item.key === baseKey);
-              if (!alreadyExists) {
-                items.push({
-                  id: idCounter++,
-                  key: baseKey,
-                  name: fileName,
-                  url: imgPath,
-                  category: series.category,
-                  interests: []
-                });
-                render();
-              }
-            };
+          items.push({
+            id: idCounter++,
+            name: `${series.prefix} (${i})`,
+            url: encodeURIComponent(fileNameJPG).replace(/%20/g, ' '),
+            fallbackUrl: encodeURIComponent(fileNameJpg).replace(/%20/g, ' '),
+            category: series.category,
+            interests: []
           });
         }
       });
@@ -180,7 +167,7 @@
             ${filteredItems.map((item) => `
               <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700/60 shadow-lg flex flex-col relative group">
                 <div class="relative aspect-square bg-slate-950 overflow-hidden cursor-pointer" onclick="openLightboxByItem(${item.id})">
-                  <img src="${item.url}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy">
+                  <img src="${item.url}" onerror="this.onerror=null; this.src='${item.fallbackUrl}';" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy">
                 </div>
 
                 <div class="p-3 flex-1 flex flex-col justify-between space-y-3">
@@ -253,7 +240,7 @@
           <div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4" onclick="closeLightbox()">
             <div class="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center justify-center" onclick="event.stopPropagation()">
               <button onclick="closeLightbox()" class="absolute -top-10 right-0 text-white text-2xl hover:text-amber-400"><i class="fa-solid fa-xmark"></i></button>
-              <img src="${items[lightboxIndex].url}" class="max-h-[80vh] max-w-full object-contain rounded-lg">
+              <img src="${items[lightboxIndex].url}" onerror="this.onerror=null; this.src='${items[lightboxIndex].fallbackUrl}';" class="max-h-[80vh] max-w-full object-contain rounded-lg">
               <p class="text-slate-300 text-sm mt-3 font-medium">${items[lightboxIndex].name} — <span class="text-amber-400">${items[lightboxIndex].category}</span></p>
             </div>
           </div>
@@ -306,7 +293,7 @@
       document.body.removeChild(link);
     }
 
-    loadLocalImages();
+    buildInventory();
     render();
   </script>
 </body>
