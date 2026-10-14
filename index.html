@@ -409,12 +409,31 @@
     function exportCSV() {
       const activeItems = items.filter(i => !i.deleted);
       if (activeItems.length === 0) return alert("Aucun objet à exporter.");
-      let csvContent = "\uFEFFNom de l'objet;Catégorie;Disponible ultérieurement;Personnes intéressées;Nombre d'intéressés\n";
+      
+      // En-têtes : Nom de l'objet, Catégorie, Disponible ultérieurement, Nombre d'intéressés, + 1 colonne par membre de la famille
+      let headers = ["Nom de l'objet", "Catégorie", "Disponible ultérieurement", "Nombre d'intéressés", ...family];
+      let csvContent = "\uFEFF" + headers.map(h => `"${h}"`).join(";") + "\n";
+      
       activeItems.forEach(item => {
-        const interestedStr = item.interests.length > 0 ? item.interests.join(", ") : "Aucune sélection";
         const dispoStr = item.availableLater ? "Oui" : "Non";
-        csvContent += `"${item.name.replace(/"/g, '""')}";"${item.category.replace(/"/g, '""')}";"${dispoStr}";"${interestedStr.replace(/"/g, '""')}";${item.interests.length}\n`;
+        
+        // On construit la ligne avec les infos générales
+        let row = [
+          `"${item.name.replace(/"/g, '""')}"`,
+          `"${item.category.replace(/"/g, '""')}"`,
+          `"${dispoStr}"`,
+          item.interests.length
+        ];
+
+        // Pour chaque membre de la famille, on ajoute "Oui" ou "" (vide)
+        family.forEach(member => {
+          const isInterested = item.interests.includes(member) ? "Oui" : "";
+          row.push(`"${isInterested}"`);
+        });
+
+        csvContent += row.join(";") + "\n";
       });
+
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
