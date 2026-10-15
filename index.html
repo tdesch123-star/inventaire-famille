@@ -43,6 +43,8 @@
       "Jean-Pascal enfant": "Jeanpascalenfant8392"
     };
 
+    const PARENTS_LIST = ["Thierry", "Loïc", "Grégory", "Manuela", "Jean-Pascal"];
+
     const CATEGORIES = [
       "Meuble", 
       "Peinture", 
@@ -112,6 +114,7 @@
             fallbackUrl3: `${encodeURIComponent(fileNameBase)}.png`,
             category: series.category,
             availableLater: false,
+            reservedFratrie: false,
             deleted: false,
             interests: [],
             comments: []
@@ -128,6 +131,7 @@
             if (data[item.id]) {
               item.interests = data[item.id].interests || [];
               item.availableLater = data[item.id].availableLater || false;
+              item.reservedFratrie = data[item.id].reservedFratrie || false;
               item.deleted = data[item.id].deleted || false;
               item.comments = data[item.id].comments || [];
               if (data[item.id].category) item.category = data[item.id].category;
@@ -142,6 +146,7 @@
       db.ref('inventory/' + item.id).set({
         interests: item.interests || [],
         availableLater: !!item.availableLater,
+        reservedFratrie: !!item.reservedFratrie,
         category: item.category,
         deleted: !!item.deleted,
         comments: item.comments || []
@@ -208,11 +213,24 @@
       return allowedTargets.includes(targetMember);
     }
 
+    function isParent(user) {
+      return PARENTS_LIST.includes(user);
+    }
+
     function toggleAvailableLater(id) {
       if (currentUser !== "Thierry") return;
       const item = items.find(i => i.id === id);
       if (item) {
         item.availableLater = !item.availableLater;
+        saveItemState(item);
+      }
+    }
+
+    function toggleReservedFratrie(id) {
+      if (!isParent(currentUser)) return;
+      const item = items.find(i => i.id === id);
+      if (item) {
+        item.reservedFratrie = !item.reservedFratrie;
         saveItemState(item);
       }
     }
@@ -306,7 +324,8 @@
     }
 
     async function exportExcelWithImages() {
-      const activeItems = items.filter(i => !i.deleted);
+      const userIsParent = isParent(currentUser);
+      const activeItems = items.filter(i => !i.deleted && (userIsParent || !i.reservedFratrie));
       if (activeItems.length === 0) return alert("Aucun objet à exporter.");
 
       isExporting = true;
@@ -316,7 +335,7 @@
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet("Inventaire");
 
-        const headers = ["Vignette", "Nom de l'objet", "Catégorie", "Aux Orchidées", "Nombre d'intéressés", ...family, "Commentaires"];
+        const headers = ["Vignette", "Nom de l'objet", "Catégorie", "Aux Orchidées", "Réservé Fratrie", "Nombre d'intéressés", ...family, "Commentaires"];
 
         worksheet.columns = headers.map((header, idx) => {
           if (idx === 0) return { header, key: "image", width: 14 };
@@ -347,22 +366,23 @@
           row.getCell(2).value = item.name;
           row.getCell(3).value = item.category;
           row.getCell(4).value = item.availableLater ? "Oui" : "Non";
-          row.getCell(5).value = item.interests.length;
+          row.getCell(5).value = item.reservedFratrie ? "Oui" : "Non";
+          row.getCell(6).value = item.interests.length;
 
           family.forEach((member, mIdx) => {
-            row.getCell(6 + mIdx).value = item.interests.includes(member) ? "Oui" : "";
-            row.getCell(6 + mIdx).alignment = { vertical: 'middle', horizontal: 'center' };
+            row.getCell(7 + mIdx).value = item.interests.includes(member) ? "Oui" : "";
+            row.getCell(7 + mIdx).alignment = { vertical: 'middle', horizontal: 'center' };
           });
 
-          // Colonne Commentaires
           const commentsTxt = (item.comments || []).map(c => `[${c.author}] ${c.text}`).join(' | ');
-          row.getCell(6 + family.length).value = commentsTxt;
-          row.getCell(6 + family.length).alignment = { vertical: 'middle', wrapText: true };
+          row.getCell(7 + family.length).value = commentsTxt;
+          row.getCell(7 + family.length).alignment = { vertical: 'middle', wrapText: true };
 
           row.getCell(2).alignment = { vertical: 'middle' };
           row.getCell(3).alignment = { vertical: 'middle' };
           row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
           row.getCell(5).alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell(6).alignment = { vertical: 'middle', horizontal: 'center' };
 
           const imgData = await fetchImageBuffer(item.url, [item.fallbackUrl, item.fallbackUrl2, item.fallbackUrl3]);
           if (imgData) {
@@ -446,7 +466,9 @@
         return;
       }
 
-      const activeItems = items.filter(i => !i.deleted);
+      const userIsParent = isParent(currentUser);
+
+      const activeItems = items.filter(i => !i.deleted && (userIsParent || !i.reservedFratrie));
 
       const filteredItems = activeItems.filter(item => {
         let matchCategory = false;
@@ -454,6 +476,8 @@
           matchCategory = true;
         } else if (activeFilterCategory === 'DISPO_LATER') {
           matchCategory = item.availableLater;
+        } else if (activeFilterCategory === 'RESERVED_FRATRIE') {
+          matchCategory = item.reservedFratrie;
         } else {
           matchCategory = (item.category === activeFilterCategory);
         }
@@ -463,6 +487,7 @@
       });
 
       const dispoLaterCount = activeItems.filter(i => i.availableLater).length;
+      const reservedFratrieCount = activeItems.filter(i => i.reservedFratrie).length;
       const commentsModalItem = commentsModalItemId ? items.find(i => i.id === commentsModalItemId) : null;
 
       app.innerHTML = `
@@ -523,6 +548,13 @@
               <span>🟡 Aux Orchidées</span>
               <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'DISPO_LATER' ? 'bg-slate-950/30 text-slate-950' : 'bg-yellow-300/20 text-yellow-300'}">${dispoLaterCount}</span>
             </button>
+
+            ${userIsParent ? `
+              <button onclick="setCategoryFilter('RESERVED_FRATRIE')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1 ${activeFilterCategory === 'RESERVED_FRATRIE' ? 'bg-rose-500 text-slate-950 font-bold shadow' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20'}">
+                <span>🔴 Réservé Fratrie</span>
+                <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'RESERVED_FRATRIE' ? 'bg-slate-950/30 text-slate-950' : 'bg-rose-500/20 text-rose-300'}">${reservedFratrieCount}</span>
+              </button>
+            ` : ''}
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
@@ -535,14 +567,25 @@
                   <div class="relative aspect-square bg-slate-950/80 overflow-hidden cursor-pointer p-1" onclick="openLightboxByItem(${item.id})">
                     <img src="${item.url}" onerror="this.onerror=null; this.src='${item.fallbackUrl}'; this.onerror=function(){this.src='${item.fallbackUrl2}'; this.onerror=function(){this.src='${item.fallbackUrl3}';};};" class="w-full h-full object-contain group-hover:scale-105 transition duration-300" loading="lazy">
                     
-                    ${item.availableLater ? `
-                      <div class="absolute top-2 right-2 z-10 flex items-center justify-center" title="Aux Orchidées">
-                        <span class="relative flex h-10 w-10">
-                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-80"></span>
-                          <span class="relative inline-flex rounded-full h-10 w-10 bg-yellow-300 border-2 border-slate-950 shadow-[0_0_15px_#fde047]"></span>
-                        </span>
-                      </div>
-                    ` : ''}
+                    <div class="absolute top-2 right-2 z-10 flex items-center gap-1">
+                      ${item.availableLater ? `
+                        <div class="flex items-center justify-center" title="Aux Orchidées">
+                          <span class="relative flex h-10 w-10">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-80"></span>
+                            <span class="relative inline-flex rounded-full h-10 w-10 bg-yellow-300 border-2 border-slate-950 shadow-[0_0_15px_#fde047]"></span>
+                          </span>
+                        </div>
+                      ` : ''}
+
+                      ${item.reservedFratrie ? `
+                        <div class="flex items-center justify-center" title="Réservé Fratrie">
+                          <span class="relative flex h-10 w-10">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-80"></span>
+                            <span class="relative inline-flex rounded-full h-10 w-10 bg-rose-500 border-2 border-slate-950 shadow-[0_0_15px_#f43f5e]"></span>
+                          </span>
+                        </div>
+                      ` : ''}
+                    </div>
                   </div>
 
                   <div class="p-2.5 flex-1 flex flex-col justify-between space-y-2">
@@ -563,6 +606,21 @@
                             <i class="fa-solid fa-comment"></i>
                             <span>${hasComments ? commentCount : 'Remarque'}</span>
                           </button>
+
+                          ${userIsParent ? `
+                            <button 
+                              onclick="toggleReservedFratrie(${item.id})" 
+                              class="text-[9px] font-bold px-1 py-0.5 rounded transition flex items-center gap-1 border ${
+                                item.reservedFratrie 
+                                  ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-400 shadow' 
+                                  : 'bg-slate-700/60 hover:bg-rose-600 hover:text-white text-slate-300 border-slate-600/50'
+                              }"
+                              title="Réserver à la Fratrie uniquement"
+                            >
+                              <i class="fa-solid fa-user-lock"></i>
+                              <span>Fratrie</span>
+                            </button>
+                          ` : ''}
 
                           ${currentUser === "Thierry" ? `
                             <button 
