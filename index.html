@@ -27,13 +27,18 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Mots de passe personnalisés (Prénom + 4 chiffres aléatoires)
-    const FAMILY_AUTH = {
-      "Thierry": { password: "Thierry4829", members: ["Thierry", "Thierry enfant"] },
-      "Loïc": { password: "Loic7315", members: ["Loïc", "Loïc enfant"] },
-      "Grégory": { password: "Gregory9142", members: ["Grégory", "Grégory enfant"] },
-      "Manuela": { password: "Manuela6083", members: ["Manuela", "Manuela enfant"] },
-      "Jean-Pascal": { password: "Jeanpascal3527", members: ["Jean-Pascal", "Jean-Pascal enfant"] }
+    // Mots de passe individuels pour chaque membre (Parents & Enfants)
+    const USER_AUTH = {
+      "Thierry": "Thierry4829",
+      "Thierry enfant": "Thierryenfant8241",
+      "Loïc": "Loic7315",
+      "Loïc enfant": "Loicenfant5913",
+      "Grégory": "Gregory9142",
+      "Grégory enfant": "Gregoryenfant4628",
+      "Manuela": "Manuela6083",
+      "Manuela enfant": "Manuelaenfant1759",
+      "Jean-Pascal": "Jeanpascal3527",
+      "Jean-Pascal enfant": "Jeanpascalenfant8392"
     };
 
     const CATEGORIES = [
@@ -55,12 +60,18 @@
       "Jean-Pascal", "Jean-Pascal enfant"
     ];
 
-    const PARENT_CHILD_MAP = {
+    // Périmètre de contrôle : Le parent contrôle lui-même + son enfant. L'enfant ne contrôle que lui-même.
+    const CONTROL_PERMISSIONS = {
       "Thierry": ["Thierry", "Thierry enfant"],
+      "Thierry enfant": ["Thierry enfant"],
       "Loïc": ["Loïc", "Loïc enfant"],
+      "Loïc enfant": ["Loïc enfant"],
       "Grégory": ["Grégory", "Grégory enfant"],
+      "Grégory enfant": ["Grégory enfant"],
       "Manuela": ["Manuela", "Manuela enfant"],
-      "Jean-Pascal": ["Jean-Pascal", "Jean-Pascal enfant"]
+      "Manuela enfant": ["Manuela enfant"],
+      "Jean-Pascal": ["Jean-Pascal", "Jean-Pascal enfant"],
+      "Jean-Pascal enfant": ["Jean-Pascal enfant"]
     };
 
     const PHOTO_CONFIG = [
@@ -132,39 +143,30 @@
     }
 
     function checkSavedAuth() {
-      const savedUser = localStorage.getItem('inv_user');
-      const savedPass = localStorage.getItem('inv_pass');
-      
-      if (savedUser && savedPass) {
-        let foundGroup = null;
-        for (const [groupName, groupData] of Object.entries(FAMILY_AUTH)) {
-          if (groupData.members.includes(savedUser)) {
-            foundGroup = groupData;
-            break;
-          }
-        }
-        if (foundGroup && savedPass === foundGroup.password) {
+      try {
+        const savedUser = localStorage.getItem('inv_user');
+        const savedPass = localStorage.getItem('inv_pass');
+        
+        if (savedUser && savedPass && USER_AUTH[savedUser] === savedPass) {
           currentUser = savedUser;
         }
+      } catch (e) {
+        console.error("Erreur de lecture du localStorage :", e);
       }
     }
 
     function login(selectedMember, passwordInput, rememberMe = true) {
       authError = "";
-      let foundGroup = null;
-      
-      for (const [groupName, groupData] of Object.entries(FAMILY_AUTH)) {
-        if (groupData.members.includes(selectedMember)) {
-          foundGroup = groupData;
-          break;
-        }
-      }
 
-      if (foundGroup && passwordInput === foundGroup.password) {
+      if (USER_AUTH[selectedMember] && passwordInput === USER_AUTH[selectedMember]) {
         currentUser = selectedMember;
         if (rememberMe) {
-          localStorage.setItem('inv_user', selectedMember);
-          localStorage.setItem('inv_pass', passwordInput);
+          try {
+            localStorage.setItem('inv_user', selectedMember);
+            localStorage.setItem('inv_pass', passwordInput);
+          } catch (e) {
+            console.error("Erreur de sauvegarde localStorage :", e);
+          }
         } else {
           localStorage.removeItem('inv_user');
           localStorage.removeItem('inv_pass');
@@ -178,8 +180,10 @@
 
     function logout() {
       currentUser = null;
-      localStorage.removeItem('inv_user');
-      localStorage.removeItem('inv_pass');
+      try {
+        localStorage.removeItem('inv_user');
+        localStorage.removeItem('inv_pass');
+      } catch (e) {}
       render();
     }
 
@@ -194,11 +198,8 @@
 
     function canControl(targetMember) {
       if (!currentUser) return false;
-      if (currentUser === targetMember) return true;
-      if (PARENT_CHILD_MAP[currentUser] && PARENT_CHILD_MAP[currentUser].includes(targetMember)) {
-        return true;
-      }
-      return false;
+      const allowedTargets = CONTROL_PERMISSIONS[currentUser] || [currentUser];
+      return allowedTargets.includes(targetMember);
     }
 
     function toggleAvailableLater(id) {
@@ -274,8 +275,8 @@
                 </div>
 
                 <div>
-                  <label class="block text-xs font-semibold text-slate-300 mb-1">Mot de passe familial :</label>
-                  <input type="password" id="passInput" placeholder="Entrez le mot de passe" required class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-3 focus:outline-none focus:border-amber-500">
+                  <label class="block text-xs font-semibold text-slate-300 mb-1">Mot de passe individuel :</label>
+                  <input type="password" id="passInput" placeholder="Entrez votre mot de passe" required class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-3 focus:outline-none focus:border-amber-500">
                 </div>
 
                 <div class="flex items-center gap-2">
@@ -370,7 +371,6 @@
             </button>
           </div>
 
-          <!-- Affichage sur 5 colonnes en largeur -->
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             ${filteredItems.map((item) => `
               <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700/60 shadow flex flex-col relative group">
