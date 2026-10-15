@@ -27,15 +27,6 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Mots de passe par famille
-    const FAMILY_AUTH = {
-      "Thierry": { password: "thierry2026", members: ["Thierry", "Thierry enfant"] },
-      "Loïc": { password: "loic2026", members: ["Loïc", "Loïc enfant"] },
-      "Grégory": { password: "gregory2026", members: ["Grégory", "Grégory enfant"] },
-      "Manuela": { password: "manuela2026", members: ["Manuela", "Manuela enfant"] },
-      "Jean-Pascal": { password: "jeanpascal2026", members: ["Jean-Pascal", "Jean-Pascal enfant"] }
-    };
-
     const CATEGORIES = [
       "Meuble", 
       "Peinture", 
@@ -75,7 +66,6 @@
 
     let items = [];
     let currentUser = null;
-    let authError = "";
     let activeFilterCategory = "Tous";
     let activeFilterMember = "Tous";
     let lightboxIndex = null;
@@ -129,26 +119,6 @@
         category: item.category,
         deleted: !!item.deleted
       });
-    }
-
-    function login(selectedMember, passwordInput) {
-      authError = "";
-      let foundGroup = null;
-      
-      for (const [groupName, groupData] of Object.entries(FAMILY_AUTH)) {
-        if (groupData.members.includes(selectedMember)) {
-          foundGroup = groupData;
-          break;
-        }
-      }
-
-      if (foundGroup && passwordInput === foundGroup.password) {
-        currentUser = selectedMember;
-        render();
-      } else {
-        authError = "Mot de passe incorrect pour " + selectedMember;
-        render();
-      }
     }
 
     function deleteItem(id) {
@@ -206,38 +176,22 @@
       if (!currentUser) {
         app.innerHTML = `
           <div class="min-h-screen flex items-center justify-center p-4 bg-slate-950">
-            <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full space-y-6 shadow-2xl text-center">
+            <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full text-center space-y-6 shadow-2xl">
               <div class="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto text-amber-400 text-2xl">
-                <i class="fa-solid fa-lock"></i>
+                <i class="fa-solid fa-users"></i>
               </div>
               <div>
-                <h1 class="text-2xl font-bold text-slate-100">Accès Sécurisé Familial</h1>
-                <p class="text-xs text-slate-400 mt-1">Choisissez votre nom et saisissez votre mot de passe privé.</p>
+                <h1 class="text-2xl font-bold text-slate-100">Catalogue Familial</h1>
+                <p class="text-xs text-slate-400 mt-1">Qui êtes-vous ? Choisissez votre prénom pour continuer.</p>
               </div>
-
-              ${authError ? `
-                <div class="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs p-3 rounded-lg font-medium">
-                  ${authError}
-                </div>
-              ` : ''}
-
-              <form onsubmit="event.preventDefault(); login(document.getElementById('memberSelect').value, document.getElementById('passInput').value);" class="space-y-4 text-left">
-                <div>
-                  <label class="block text-xs font-semibold text-slate-300 mb-1">Identifiant :</label>
-                  <select id="memberSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-3 focus:outline-none focus:border-amber-500">
-                    ${family.map(m => `<option value="${m}">${m}</option>`).join('')}
-                  </select>
-                </div>
-
-                <div>
-                  <label class="block text-xs font-semibold text-slate-300 mb-1">Mot de passe familial :</label>
-                  <input type="password" id="passInput" placeholder="Entrez le mot de passe" required class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-3 focus:outline-none focus:border-amber-500">
-                </div>
-
-                <button type="submit" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition shadow-lg flex items-center justify-center gap-2">
-                  <i class="fa-solid fa-right-to-bracket"></i> Se connecter
-                </button>
-              </form>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[60vh] overflow-y-auto p-1">
+                ${family.map(m => `
+                  <button onclick="setCurrentUser('${m}')" class="w-full py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 border border-slate-700 font-semibold text-xs transition flex items-center justify-between group">
+                    <span class="truncate">${m}</span>
+                    <i class="fa-solid fa-chevron-right text-[10px] opacity-50 group-hover:opacity-100 ml-1"></i>
+                  </button>
+                `).join('')}
+              </div>
             </div>
           </div>
         `;
@@ -274,7 +228,7 @@
               <div class="bg-slate-900 border border-amber-500/30 px-3 py-1.5 rounded-lg flex items-center gap-2">
                 <i class="fa-solid fa-circle-user text-amber-400"></i>
                 <span class="text-xs font-semibold text-slate-200">${currentUser}</span>
-                <button onclick="setCurrentUser(null)" title="Déconnexion" class="ml-2 text-[10px] text-slate-400 hover:text-rose-400 underline">Déconnexion</button>
+                <button onclick="setCurrentUser(null)" title="Changer d'utilisateur" class="ml-2 text-[10px] text-slate-400 hover:text-rose-400 underline">Changer</button>
               </div>
 
               ${activeItems.length > 0 ? `
@@ -456,12 +410,14 @@
       const activeItems = items.filter(i => !i.deleted);
       if (activeItems.length === 0) return alert("Aucun objet à exporter.");
       
+      // En-têtes : Nom de l'objet, Catégorie, Disponible ultérieurement, Nombre d'intéressés, + 1 colonne par membre de la famille
       let headers = ["Nom de l'objet", "Catégorie", "Disponible ultérieurement", "Nombre d'intéressés", ...family];
       let csvContent = "\uFEFF" + headers.map(h => `"${h}"`).join(";") + "\n";
       
       activeItems.forEach(item => {
         const dispoStr = item.availableLater ? "Oui" : "Non";
         
+        // On construit la ligne avec les infos générales
         let row = [
           `"${item.name.replace(/"/g, '""')}"`,
           `"${item.category.replace(/"/g, '""')}"`,
@@ -469,6 +425,7 @@
           item.interests.length
         ];
 
+        // Pour chaque membre de la famille, on ajoute "Oui" ou "" (vide)
         family.forEach(member => {
           const isInterested = item.interests.includes(member) ? "Oui" : "";
           row.push(`"${isInterested}"`);
