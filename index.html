@@ -79,15 +79,15 @@
       "Jean-Pascal enfant": ["Jean-Pascal enfant"]
     };
 
-    const MAX_PER_CATEGORY = 200;
+    // Nombre exact de photos par catégorie
     const PHOTO_CONFIG = [
-      { prefix: "Décoration", category: "Décoration" },
-      { prefix: "Mobilier", category: "Meuble" },
-      { prefix: "Vaisselle-Argenterie", category: "Vaisselle Argenterie" },
-      { prefix: "Divers", category: "Divers" },
-      { prefix: "Peinture", category: "Peinture" },
-      { prefix: "Vaisselle divers", category: "Vaisselle divers" },
-      { prefix: "Electromenager", category: "Électroménager" }
+      { prefix: "Décoration", count: 78, category: "Décoration" },
+      { prefix: "Mobilier", count: 70, category: "Meuble" },
+      { prefix: "Vaisselle-Argenterie", count: 66, category: "Vaisselle Argenterie" },
+      { prefix: "Divers", count: 40, category: "Divers" },
+      { prefix: "Peinture", count: 28, category: "Peinture" },
+      { prefix: "Vaisselle divers", count: 20, category: "Vaisselle divers" },
+      { prefix: "Electromenager", count: 8, category: "Électroménager" }
     ];
 
     let items = [];
@@ -99,65 +99,31 @@
     let editingCategoryItemId = null;
     let commentsModalItemId = null;
     let isExporting = false;
-    let isScanning = true;
 
-    async function checkImageExists(url, fallbackUrls = []) {
-      const urls = [url, ...fallbackUrls];
-      for (const u of urls) {
-        try {
-          const res = await fetch(u, { method: 'HEAD' });
-          if (res.ok) return true;
-        } catch (e) {}
-      }
-      return false;
-    }
-
-    async function buildInventoryDynamic() {
+    function buildInventory() {
       items = [];
       let idCounter = 1;
-      isScanning = true;
-      render();
 
-      for (const series of PHOTO_CONFIG) {
-        let consecutiveFailures = 0;
-        
-        for (let i = 1; i <= MAX_PER_CATEGORY; i++) {
+      PHOTO_CONFIG.forEach(series => {
+        for (let i = 1; i <= series.count; i++) {
           const fileNameBase = `${series.prefix} (${i})`;
-          const primaryUrl = `${encodeURIComponent(fileNameBase)}.JPG`;
-          const fallbacks = [
-            `${encodeURIComponent(fileNameBase)}.jpg`,
-            `${encodeURIComponent(fileNameBase)}.jpeg`,
-            `${encodeURIComponent(fileNameBase)}.png`
-          ];
-
-          const exists = await checkImageExists(primaryUrl, fallbacks);
-
-          if (exists) {
-            consecutiveFailures = 0;
-            items.push({
-              id: idCounter++,
-              name: fileNameBase,
-              url: primaryUrl,
-              fallbackUrl: fallbacks[0],
-              fallbackUrl2: fallbacks[1],
-              fallbackUrl3: fallbacks[2],
-              category: series.category,
-              availableLater: false,
-              reservedFratrie: false,
-              deleted: false,
-              interests: [],
-              comments: []
-            });
-          } else {
-            consecutiveFailures++;
-            if (consecutiveFailures >= 3) break;
-          }
+          
+          items.push({
+            id: idCounter++,
+            name: fileNameBase,
+            url: `${encodeURIComponent(fileNameBase)}.JPG`,
+            fallbackUrl: `${encodeURIComponent(fileNameBase)}.jpg`,
+            fallbackUrl2: `${encodeURIComponent(fileNameBase)}.jpeg`,
+            fallbackUrl3: `${encodeURIComponent(fileNameBase)}.png`,
+            category: series.category,
+            availableLater: false,
+            reservedFratrie: false,
+            deleted: false,
+            interests: [],
+            comments: []
+          });
         }
-      }
-
-      isScanning = false;
-      startFirebaseAuthAndSync();
-      render();
+      });
     }
 
     function startFirebaseAuthAndSync() {
@@ -254,10 +220,9 @@
       }
     }
 
-    // ACCÈS MAÎTRE : Thierry a le contrôle total sur TOUS les membres
     function canControl(targetMember) {
       if (!currentUser) return false;
-      if (currentUser === "Thierry") return true; // Thierry peut modifier tout le monde sans mot de passe
+      if (currentUser === "Thierry") return true;
       const allowedTargets = CONTROL_PERMISSIONS[currentUser] || [currentUser];
       return allowedTargets.includes(targetMember);
     }
@@ -468,19 +433,6 @@
 
     function render() {
       const app = document.getElementById('app');
-
-      if (isScanning) {
-        app.innerHTML = `
-          <div class="min-h-screen flex items-center justify-center p-4 bg-slate-950 text-center">
-            <div class="space-y-4">
-              <i class="fa-solid fa-spinner fa-spin text-4xl text-amber-400"></i>
-              <h2 class="text-lg font-bold text-slate-200">Détection automatique du catalogue de photos...</h2>
-              <p class="text-xs text-slate-400">Analyse de vos fichiers en cours (${items.length} photo(s) détectée(s))</p>
-            </div>
-          </div>
-        `;
-        return;
-      }
 
       if (!currentUser) {
         app.innerHTML = `
@@ -846,8 +798,10 @@
     function openLightboxByItem(id) { lightboxIndex = items.findIndex(i => i.id === id); render(); }
     function closeLightbox() { lightboxIndex = null; render(); }
 
+    buildInventory();
     checkSavedAuth();
-    buildInventoryDynamic();
+    startFirebaseAuthAndSync();
+    render();
   </script>
 </body>
 </html>
