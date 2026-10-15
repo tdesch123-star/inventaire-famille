@@ -12,7 +12,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
-  <!-- ExcelJS pour l'intégration des vignettes et fonctionnalités avancées Excel -->
+  <!-- ExcelJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
@@ -79,7 +79,7 @@
       "Jean-Pascal enfant": ["Jean-Pascal enfant"]
     };
 
-    // Configuration des séries de photos
+    // Nombres exacts déclarés
     const PHOTO_CONFIG = [
       { prefix: "Décoration", count: 74, category: "Décoration" },
       { prefix: "Mobilier", count: 49, category: "Meuble" },
@@ -100,26 +100,24 @@
     let commentsModalItemId = null;
     let isExporting = false;
 
-    // Image SVG générée dynamiquement si la photo est introuvable sur le serveur
-    const PLACEHOLDER_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='200' height='200' fill='%231e293b'/><text x='50%25' y='45%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-size='14' font-family='sans-serif'>Photo non trouvée</text><text x='50%25' y='60%25' dominant-baseline='middle' text-anchor='middle' fill='%23475569' font-size='10' font-family='sans-serif'>Vérifier le nom sur GitHub</text></svg>";
+    const PLACEHOLDER_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='200' height='200' fill='%231e293b'/><text x='50%25' y='45%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-size='13' font-family='sans-serif'>Image introuvable</text><text x='50%25' y='60%25' dominant-baseline='middle' text-anchor='middle' fill='%23475569' font-size='10' font-family='sans-serif'>Vérifier le nom du fichier</text></svg>";
 
     function buildInventory() {
       items = [];
-      let idCounter = 1;
 
       PHOTO_CONFIG.forEach(series => {
         for (let i = 1; i <= series.count; i++) {
           const fileNameBase = `${series.prefix} (${i})`;
-          // Variante alternative si le nom sur github utilise "Meuble" au lieu de "Mobilier"
-          const altFileNameBase = series.prefix === "Mobilier" ? `Meuble (${i})` : fileNameBase;
+          // Clé unique textuelle pour éviter les collisions d'anciens IDs numériques
+          const uniqueId = `item_${series.prefix.replace(/[^a-zA-Z0-0]/g, '')}_${i}`;
           
           items.push({
-            id: idCounter++,
+            id: uniqueId,
             name: fileNameBase,
             url: `${encodeURIComponent(fileNameBase)}.JPG`,
             fallbackUrl: `${encodeURIComponent(fileNameBase)}.jpg`,
-            fallbackUrl2: `${encodeURIComponent(altFileNameBase)}.JPG`,
-            fallbackUrl3: `${encodeURIComponent(altFileNameBase)}.jpg`,
+            fallbackUrl2: `${encodeURIComponent(fileNameBase)}.jpeg`,
+            fallbackUrl3: `${encodeURIComponent(fileNameBase)}.png`,
             category: series.category,
             availableLater: false,
             reservedFratrie: false,
@@ -571,7 +569,7 @@
 
               return `
                 <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700/60 shadow flex flex-col relative group">
-                  <div class="relative aspect-square bg-slate-950/80 overflow-hidden cursor-pointer p-1" onclick="openLightboxByItem(${item.id})">
+                  <div class="relative aspect-square bg-slate-950/80 overflow-hidden cursor-pointer p-1" onclick="openLightboxByItem('${item.id}')">
                     <img 
                       src="${item.url}" 
                       loading="lazy" 
@@ -608,7 +606,7 @@
                         
                         <div class="flex items-center gap-1 flex-wrap justify-end">
                           <button 
-                            onclick="openCommentsModal(${item.id})" 
+                            onclick="openCommentsModal('${item.id}')" 
                             class="text-[9px] font-bold px-1.5 py-0.5 rounded transition flex items-center gap-1 border ${
                               hasComments 
                                 ? 'bg-purple-600 hover:bg-purple-500 text-white border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.5)]' 
@@ -622,7 +620,7 @@
 
                           ${userIsParent ? `
                             <button 
-                              onclick="toggleReservedFratrie(${item.id})" 
+                              onclick="toggleReservedFratrie('${item.id}')" 
                               class="text-[9px] font-bold px-1 py-0.5 rounded transition flex items-center gap-1 border ${
                                 item.reservedFratrie 
                                   ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-400 shadow' 
@@ -637,7 +635,7 @@
 
                           ${currentUser === "Thierry" ? `
                             <button 
-                              onclick="toggleAvailableLater(${item.id})" 
+                              onclick="toggleAvailableLater('${item.id}')" 
                               class="text-[9px] font-bold px-1 py-0.5 rounded transition flex items-center gap-1 border ${
                                 item.availableLater 
                                   ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow' 
@@ -650,7 +648,7 @@
                             </button>
 
                             <button 
-                              onclick="openCategoryModal(${item.id})" 
+                              onclick="openCategoryModal('${item.id}')" 
                               class="bg-slate-700/80 hover:bg-amber-500 hover:text-slate-950 text-slate-300 text-[9px] font-medium px-1 py-0.5 rounded transition flex items-center gap-1 border border-slate-600/50"
                               title="Changer la catégorie"
                             >
@@ -672,7 +670,7 @@
                           
                           return `
                             <button 
-                              ${hasPermission ? `onclick="toggleInterest(${item.id}, '${m}')"` : 'disabled'} 
+                              ${hasPermission ? `onclick="toggleInterest('${item.id}', '${m}')"` : 'disabled'} 
                               class="text-[10px] px-1.5 py-0.5 rounded transition flex items-center gap-0.5 ${
                                 interested 
                                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold' 
@@ -739,7 +737,7 @@
                       <div class="flex items-center gap-2">
                         <span>${comm.date || ''}</span>
                         ${(currentUser === "Thierry" || currentUser === comm.author) ? `
-                          <button onclick="deleteComment(${commentsModalItem.id},${cIdx})" class="text-rose-400 hover:text-rose-300" title="Supprimer"><i class="fa-solid fa-trash-can"></i></button>
+                          <button onclick="deleteComment('${commentsModalItem.id}',${cIdx})" class="text-rose-400 hover:text-rose-300" title="Supprimer"><i class="fa-solid fa-trash-can"></i></button>
                         ` : ''}
                       </div>
                     </div>
@@ -749,7 +747,7 @@
               </div>
 
               <!-- Formulaire d'ajout -->
-              <form onsubmit="event.preventDefault(); addComment(${commentsModalItem.id}, document.getElementById('newCommentInput').value); document.getElementById('newCommentInput').value='';" class="space-y-2 pt-2 border-t border-slate-800">
+              <form onsubmit="event.preventDefault(); addComment('${commentsModalItem.id}', document.getElementById('newCommentInput').value); document.getElementById('newCommentInput').value='';" class="space-y-2 pt-2 border-t border-slate-800">
                 <label class="block text-[11px] text-slate-400 font-semibold">Ajouter une précision (${currentUser}) :</label>
                 <div class="flex gap-2">
                   <input type="text" id="newCommentInput" placeholder="Ex: Je suis preneur si personne ne le veut..." required class="flex-1 bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-2.5 focus:outline-none focus:border-purple-500">
@@ -767,7 +765,7 @@
           <div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4" onclick="closeLightbox()">
             <div class="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center justify-center" onclick="event.stopPropagation()">
               <button onclick="closeLightbox()" class="absolute -top-10 right-0 text-white text-2xl hover:text-amber-400"><i class="fa-solid fa-xmark"></i></button>
-              <img src="${items[lightboxIndex].url}" onerror="this.onerror=null; this.src='${items[lightboxIndex].fallbackUrl}';" class="max-h-[80vh] max-w-full object-contain rounded-lg">
+              <img src="${items[lightboxIndex].url}" onerror="this.onerror=null; this.src='${items[lightboxIndex].fallbackUrl}'; this.onerror=function(){this.src='${items[lightboxIndex].fallbackUrl2}'; this.onerror=function(){this.src='${PLACEHOLDER_IMG}';};};" class="max-h-[80vh] max-w-full object-contain rounded-lg">
               <p class="text-slate-300 text-sm mt-3 font-medium">${items[lightboxIndex].name} — <span class="text-amber-400">${items[lightboxIndex].category}</span></p>
             </div>
           </div>
