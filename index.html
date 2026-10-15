@@ -131,7 +131,25 @@
       });
     }
 
-    function login(selectedMember, passwordInput) {
+    function checkSavedAuth() {
+      const savedUser = localStorage.getItem('inv_user');
+      const savedPass = localStorage.getItem('inv_pass');
+      
+      if (savedUser && savedPass) {
+        let foundGroup = null;
+        for (const [groupName, groupData] of Object.entries(FAMILY_AUTH)) {
+          if (groupData.members.includes(savedUser)) {
+            foundGroup = groupData;
+            break;
+          }
+        }
+        if (foundGroup && savedPass === foundGroup.password) {
+          currentUser = savedUser;
+        }
+      }
+    }
+
+    function login(selectedMember, passwordInput, rememberMe = true) {
       authError = "";
       let foundGroup = null;
       
@@ -144,11 +162,25 @@
 
       if (foundGroup && passwordInput === foundGroup.password) {
         currentUser = selectedMember;
+        if (rememberMe) {
+          localStorage.setItem('inv_user', selectedMember);
+          localStorage.setItem('inv_pass', passwordInput);
+        } else {
+          localStorage.removeItem('inv_user');
+          localStorage.removeItem('inv_pass');
+        }
         render();
       } else {
         authError = "Mot de passe incorrect pour " + selectedMember;
         render();
       }
+    }
+
+    function logout() {
+      currentUser = null;
+      localStorage.removeItem('inv_user');
+      localStorage.removeItem('inv_pass');
+      render();
     }
 
     function deleteItem(id) {
@@ -233,7 +265,7 @@
                 </div>
               ` : ''}
 
-              <form onsubmit="event.preventDefault(); login(document.getElementById('memberSelect').value, document.getElementById('passInput').value);" class="space-y-4 text-left">
+              <form onsubmit="event.preventDefault(); login(document.getElementById('memberSelect').value, document.getElementById('passInput').value, document.getElementById('rememberInput').checked);" class="space-y-4 text-left">
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 mb-1">Identifiant :</label>
                   <select id="memberSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-3 focus:outline-none focus:border-amber-500">
@@ -244,6 +276,11 @@
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 mb-1">Mot de passe familial :</label>
                   <input type="password" id="passInput" placeholder="Entrez le mot de passe" required class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-3 focus:outline-none focus:border-amber-500">
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <input type="checkbox" id="rememberInput" checked class="w-4 h-4 accent-amber-500 rounded cursor-pointer">
+                  <label for="rememberInput" class="text-xs text-slate-300 cursor-pointer">Rester connecté sur cet appareil</label>
                 </div>
 
                 <button type="submit" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition shadow-lg flex items-center justify-center gap-2">
@@ -286,7 +323,7 @@
               <div class="bg-slate-900 border border-amber-500/30 px-2.5 py-1 rounded-lg flex items-center gap-2">
                 <i class="fa-solid fa-circle-user text-amber-400 text-xs"></i>
                 <span class="text-xs font-semibold text-slate-200">${currentUser}</span>
-                <button onclick="setCurrentUser(null)" title="Déconnexion" class="ml-1 text-[10px] text-slate-400 hover:text-rose-400 underline">Déconnexion</button>
+                <button onclick="logout()" title="Déconnexion" class="ml-1 text-[10px] text-slate-400 hover:text-rose-400 underline">Déconnexion</button>
               </div>
 
               ${activeItems.length > 0 ? `
@@ -501,6 +538,7 @@
     }
 
     buildInventory();
+    checkSavedAuth();
     initRealtimeSync();
     render();
   </script>
