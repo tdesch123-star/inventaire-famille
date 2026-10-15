@@ -27,13 +27,13 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Mots de passe par famille
+    // Mots de passe personnalisés (Prénom + 4 chiffres aléatoires)
     const FAMILY_AUTH = {
-      "Thierry": { password: "thierry2026", members: ["Thierry", "Thierry enfant"] },
-      "Loïc": { password: "loic2026", members: ["Loïc", "Loïc enfant"] },
-      "Grégory": { password: "gregory2026", members: ["Grégory", "Grégory enfant"] },
-      "Manuela": { password: "manuela2026", members: ["Manuela", "Manuela enfant"] },
-      "Jean-Pascal": { password: "jeanpascal2026", members: ["Jean-Pascal", "Jean-Pascal enfant"] }
+      "Thierry": { password: "Thierry4829", members: ["Thierry", "Thierry enfant"] },
+      "Loïc": { password: "Loic7315", members: ["Loïc", "Loïc enfant"] },
+      "Grégory": { password: "Gregory9142", members: ["Grégory", "Grégory enfant"] },
+      "Manuela": { password: "Manuela6083", members: ["Manuela", "Manuela enfant"] },
+      "Jean-Pascal": { password: "Jeanpascal3527", members: ["Jean-Pascal", "Jean-Pascal enfant"] }
     };
 
     const CATEGORIES = [
@@ -275,22 +275,22 @@
       const dispoLaterCount = activeItems.filter(i => i.availableLater).length;
 
       app.innerHTML = `
-        <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-30 p-4 shadow-lg">
-          <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+        <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-30 p-3 shadow-lg">
+          <div class="max-w-[1600px] mx-auto flex flex-wrap justify-between items-center gap-3">
             <div>
-              <h1 class="text-2xl font-bold text-amber-400"><i class="fa-solid fa-boxes-packing mr-2"></i>Catalogue de Famille</h1>
-              <p class="text-xs text-slate-400">${activeItems.length} objet(s) au total ${activeFilterMember !== 'Tous' || activeFilterCategory !== 'Tous' ? `— <b class="text-amber-300">${filteredItems.length} affiché(s)</b>` : ''}</p>
+              <h1 class="text-xl font-bold text-amber-400"><i class="fa-solid fa-boxes-packing mr-2"></i>Catalogue de Famille</h1>
+              <p class="text-[11px] text-slate-400">${activeItems.length} objet(s) au total ${activeFilterMember !== 'Tous' || activeFilterCategory !== 'Tous' ? `— <b class="text-amber-300">${filteredItems.length} affiché(s)</b>` : ''}</p>
             </div>
             
             <div class="flex items-center gap-2 flex-wrap">
-              <div class="bg-slate-900 border border-amber-500/30 px-3 py-1.5 rounded-lg flex items-center gap-2">
-                <i class="fa-solid fa-circle-user text-amber-400"></i>
+              <div class="bg-slate-900 border border-amber-500/30 px-2.5 py-1 rounded-lg flex items-center gap-2">
+                <i class="fa-solid fa-circle-user text-amber-400 text-xs"></i>
                 <span class="text-xs font-semibold text-slate-200">${currentUser}</span>
-                <button onclick="setCurrentUser(null)" title="Déconnexion" class="ml-2 text-[10px] text-slate-400 hover:text-rose-400 underline">Déconnexion</button>
+                <button onclick="setCurrentUser(null)" title="Déconnexion" class="ml-1 text-[10px] text-slate-400 hover:text-rose-400 underline">Déconnexion</button>
               </div>
 
               ${activeItems.length > 0 ? `
-                <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-2 rounded-lg text-xs transition flex items-center gap-1.5 shadow">
+                <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-2.5 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow">
                   <i class="fa-solid fa-file-excel"></i>Extraire la synthèse
                 </button>
               ` : ''}
@@ -298,12 +298,12 @@
           </div>
         </header>
 
-        <main class="max-w-7xl mx-auto p-4 space-y-6">
-          <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700/80 flex flex-wrap items-center gap-3 shadow">
-            <span class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+        <main class="max-w-[1600px] mx-auto p-3 space-y-4">
+          <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80 flex flex-wrap items-center gap-2 shadow">
+            <span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
               <i class="fa-solid fa-eye"></i> Consulter les choix de :
             </span>
-            <button onclick="setMemberFilter('Tous')" class="px-3 py-1.5 rounded-full text-xs font-semibold transition ${activeFilterMember === 'Tous' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}">
+            <button onclick="setMemberFilter('Tous')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition ${activeFilterMember === 'Tous' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}">
               Voir tout le monde
             </button>
             ${family.map(f => {
@@ -311,7 +311,7 @@
               const isActive = activeFilterMember === f;
               const isChild = f.includes("enfant");
               return `
-                <button onclick="setMemberFilter('${f}')" class="px-3 py-1.5 rounded-full text-xs font-semibold transition flex items-center gap-1.5 ${isActive ? 'bg-emerald-500 text-slate-950 font-bold shadow' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'} ${isChild ? 'border border-dashed border-amber-400/40' : ''}">
+                <button onclick="setMemberFilter('${f}')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1 ${isActive ? 'bg-emerald-500 text-slate-950 font-bold shadow' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'} ${isChild ? 'border border-dashed border-amber-400/40' : ''}">
                   <span>${f}</span>
                   <span class="px-1.5 py-0.2 text-[10px] rounded-full ${isActive ? 'bg-slate-950/30 text-slate-950' : 'bg-slate-800 text-slate-400'}">${count}</span>
                 </button>
@@ -319,46 +319,47 @@
             }).join('')}
           </div>
 
-          <div class="flex flex-wrap items-center gap-2 pb-2 border-b border-slate-800">
+          <div class="flex flex-wrap items-center gap-1.5 pb-2 border-b border-slate-800">
             <span class="text-xs text-slate-400 font-semibold mr-1">Filtre :</span>
-            <button onclick="setCategoryFilter('Tous')" class="px-3 py-1.5 rounded-full text-xs font-semibold ${activeFilterCategory === 'Tous' ? 'bg-amber-500 text-slate-900 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">Toutes</button>
+            <button onclick="setCategoryFilter('Tous')" class="px-2.5 py-1 rounded-full text-xs font-semibold ${activeFilterCategory === 'Tous' ? 'bg-amber-500 text-slate-900 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">Toutes</button>
             
             ${CATEGORIES.map(c => `
-              <button onclick="setCategoryFilter('${c}')" class="px-3 py-1.5 rounded-full text-xs font-semibold ${activeFilterCategory === c ? 'bg-amber-500 text-slate-900 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">${c}</button>
+              <button onclick="setCategoryFilter('${c}')" class="px-2.5 py-1 rounded-full text-xs font-semibold ${activeFilterCategory === c ? 'bg-amber-500 text-slate-900 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">${c}</button>
             `).join('')}
 
-            <button onclick="setCategoryFilter('DISPO_LATER')" class="px-3 py-1.5 rounded-full text-xs font-semibold transition flex items-center gap-1.5 ${activeFilterCategory === 'DISPO_LATER' ? 'bg-yellow-400 text-slate-950 font-bold shadow' : 'bg-yellow-400/10 text-yellow-300 border border-yellow-400/30 hover:bg-yellow-400/20'}">
+            <button onclick="setCategoryFilter('DISPO_LATER')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1 ${activeFilterCategory === 'DISPO_LATER' ? 'bg-yellow-400 text-slate-950 font-bold shadow' : 'bg-yellow-400/10 text-yellow-300 border border-yellow-400/30 hover:bg-yellow-400/20'}">
               <span>🟡 Aux Orchidées</span>
               <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'DISPO_LATER' ? 'bg-slate-950/30 text-slate-950' : 'bg-yellow-400/20 text-yellow-300'}">${dispoLaterCount}</span>
             </button>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <!-- Affichage sur 5 colonnes en largeur -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             ${filteredItems.map((item) => `
-              <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700/60 shadow-lg flex flex-col relative group">
+              <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700/60 shadow flex flex-col relative group">
                 <div class="relative aspect-square bg-slate-950 overflow-hidden cursor-pointer" onclick="openLightboxByItem(${item.id})">
                   <img src="${item.url}" onerror="this.onerror=null; this.src='${item.fallbackUrl}'; this.onerror=function(){this.src='${item.fallbackUrl2}'; this.onerror=function(){this.src='${item.fallbackUrl3}';};};" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy">
                   
                   ${item.availableLater ? `
-                    <div class="absolute top-3 right-3 z-10 flex items-center justify-center" title="Aux Orchidées">
-                      <span class="relative flex h-6 w-6">
+                    <div class="absolute top-2 right-2 z-10 flex items-center justify-center" title="Aux Orchidées">
+                      <span class="relative flex h-5 w-5">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-6 w-6 bg-yellow-400 border-2 border-slate-900 shadow-md"></span>
+                        <span class="relative inline-flex rounded-full h-5 w-5 bg-yellow-400 border-2 border-slate-900 shadow-md"></span>
                       </span>
                     </div>
                   ` : ''}
                 </div>
 
-                <div class="p-3 flex-1 flex flex-col justify-between space-y-3">
+                <div class="p-2.5 flex-1 flex flex-col justify-between space-y-2">
                   <div>
-                    <div class="flex justify-between items-center gap-1 mb-2">
-                      <span class="text-xs font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded truncate">${item.category}</span>
+                    <div class="flex justify-between items-center gap-1 mb-1.5">
+                      <span class="text-[11px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded truncate">${item.category}</span>
                       
                       <div class="flex items-center gap-1 flex-wrap justify-end">
                         ${currentUser === "Thierry" ? `
                           <button 
                             onclick="toggleAvailableLater(${item.id})" 
-                            class="text-[10px] font-bold px-1.5 py-1 rounded transition flex items-center gap-1 border ${
+                            class="text-[9px] font-bold px-1 py-0.5 rounded transition flex items-center gap-1 border ${
                               item.availableLater 
                                 ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow' 
                                 : 'bg-slate-700/60 hover:bg-rose-600 hover:text-white text-slate-300 border-slate-600/50'
@@ -371,7 +372,7 @@
 
                           <button 
                             onclick="openCategoryModal(${item.id})" 
-                            class="bg-slate-700/80 hover:bg-amber-500 hover:text-slate-950 text-slate-300 text-[10px] font-medium px-1.5 py-1 rounded transition flex items-center gap-1 border border-slate-600/50"
+                            class="bg-slate-700/80 hover:bg-amber-500 hover:text-slate-950 text-slate-300 text-[9px] font-medium px-1 py-0.5 rounded transition flex items-center gap-1 border border-slate-600/50"
                             title="Changer la catégorie"
                           >
                             <i class="fa-solid fa-pen-to-square"></i>
@@ -380,7 +381,7 @@
 
                           <button 
                             onclick="deleteItem(${item.id})" 
-                            class="text-[10px] font-bold px-1.5 py-1 rounded transition flex items-center gap-1 bg-red-600/80 hover:bg-red-600 text-white border border-red-500 shadow"
+                            class="text-[9px] font-bold px-1 py-0.5 rounded transition flex items-center gap-1 bg-red-600/80 hover:bg-red-600 text-white border border-red-500 shadow"
                             title="Supprimer définitivement cet objet"
                           >
                             <i class="fa-solid fa-trash-can"></i>
@@ -389,11 +390,11 @@
                         ` : ''}
                       </div>
                     </div>
-                    <p class="text-xs text-slate-400 font-mono truncate" title="${item.name}">${item.name}</p>
+                    <p class="text-[11px] text-slate-400 font-mono truncate" title="${item.name}">${item.name}</p>
                   </div>
 
-                  <div class="space-y-2 border-t border-slate-700/50 pt-2">
-                    <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Intéressé(e)s :</p>
+                  <div class="space-y-1 border-t border-slate-700/50 pt-1.5">
+                    <p class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Intéressé(e)s :</p>
                     <div class="flex flex-wrap gap-1">
                       ${family.map(m => {
                         const interested = item.interests.includes(m);
@@ -402,7 +403,7 @@
                         return `
                           <button 
                             ${hasPermission ? `onclick="toggleInterest(${item.id}, '${m}')"` : 'disabled'} 
-                            class="text-xs px-2 py-0.5 rounded-md transition flex items-center gap-1 ${
+                            class="text-[10px] px-1.5 py-0.5 rounded transition flex items-center gap-0.5 ${
                               interested 
                                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold' 
                                 : 'bg-slate-700/30 text-slate-500 border border-transparent'
