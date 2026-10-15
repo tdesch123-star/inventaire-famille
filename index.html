@@ -190,7 +190,19 @@
       saveItemState(item);
     }
 
+    function openCategoryModal(id) {
+      if (currentUser !== "Thierry") return;
+      editingCategoryItemId = id;
+      render();
+    }
+
+    function closeCategoryModal() {
+      editingCategoryItemId = null;
+      render();
+    }
+
     function selectCategory(cat) {
+      if (currentUser !== "Thierry") return;
       const item = items.find(i => i.id === editingCategoryItemId);
       if (item) {
         item.category = cat;
@@ -316,7 +328,7 @@
             `).join('')}
 
             <button onclick="setCategoryFilter('DISPO_LATER')" class="px-3 py-1.5 rounded-full text-xs font-semibold transition flex items-center gap-1.5 ${activeFilterCategory === 'DISPO_LATER' ? 'bg-yellow-400 text-slate-950 font-bold shadow' : 'bg-yellow-400/10 text-yellow-300 border border-yellow-400/30 hover:bg-yellow-400/20'}">
-              <span>🟡 Disponibles ultérieurement</span>
+              <span>🟡 Aux Orchidées</span>
               <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'DISPO_LATER' ? 'bg-slate-950/30 text-slate-950' : 'bg-yellow-400/20 text-yellow-300'}">${dispoLaterCount}</span>
             </button>
           </div>
@@ -328,7 +340,7 @@
                   <img src="${item.url}" onerror="this.onerror=null; this.src='${item.fallbackUrl}'; this.onerror=function(){this.src='${item.fallbackUrl2}'; this.onerror=function(){this.src='${item.fallbackUrl3}';};};" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy">
                   
                   ${item.availableLater ? `
-                    <div class="absolute top-3 right-3 z-10 flex items-center justify-center" title="Disponible ultérieurement">
+                    <div class="absolute top-3 right-3 z-10 flex items-center justify-center" title="Aux Orchidées">
                       <span class="relative flex h-6 w-6">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-6 w-6 bg-yellow-400 border-2 border-slate-900 shadow-md"></span>
@@ -351,10 +363,19 @@
                                 ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow' 
                                 : 'bg-slate-700/60 hover:bg-rose-600 hover:text-white text-slate-300 border-slate-600/50'
                             }"
-                            title="Indiquer disponible ultérieurement"
+                            title="Indiquer Aux Orchidées"
                           >
                             <i class="fa-solid fa-clock"></i>
-                            <span>Dispo ultér.</span>
+                            <span>Aux Orchidées</span>
+                          </button>
+
+                          <button 
+                            onclick="openCategoryModal(${item.id})" 
+                            class="bg-slate-700/80 hover:bg-amber-500 hover:text-slate-950 text-slate-300 text-[10px] font-medium px-1.5 py-1 rounded transition flex items-center gap-1 border border-slate-600/50"
+                            title="Changer la catégorie"
+                          >
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            <span>Changer</span>
                           </button>
 
                           <button 
@@ -366,11 +387,6 @@
                             <span>Suppr.</span>
                           </button>
                         ` : ''}
-
-                        <button onclick="openCategoryModal(${item.id})" class="bg-slate-700/80 hover:bg-amber-500 hover:text-slate-950 text-slate-300 text-[11px] font-medium px-2 py-1 rounded transition flex items-center gap-1 border border-slate-600/50">
-                          <i class="fa-solid fa-pen-to-square"></i>
-                          <span>Changer</span>
-                        </button>
                       </div>
                     </div>
                     <p class="text-xs text-slate-400 font-mono truncate" title="${item.name}">${item.name}</p>
@@ -408,8 +424,8 @@
           </div>
         </main>
 
-        <!-- Modale Catégorie -->
-        ${editingCategoryItemId !== null ? `
+        <!-- Modale Catégorie (Réservée à Thierry) -->
+        ${editingCategoryItemId !== null && currentUser === "Thierry" ? `
           <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onclick="closeCategoryModal()">
             <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl" onclick="event.stopPropagation()">
               <div class="flex justify-between items-center border-b border-slate-800 pb-3">
@@ -449,14 +465,11 @@
     function openLightboxByItem(id) { lightboxIndex = items.findIndex(i => i.id === id); render(); }
     function closeLightbox() { lightboxIndex = null; render(); }
 
-    function openCategoryModal(id) { editingCategoryItemId = id; render(); }
-    function closeCategoryModal() { editingCategoryItemId = null; render(); }
-
     function exportCSV() {
       const activeItems = items.filter(i => !i.deleted);
       if (activeItems.length === 0) return alert("Aucun objet à exporter.");
       
-      let headers = ["Nom de l'objet", "Catégorie", "Disponible ultérieurement", "Nombre d'intéressés", ...family];
+      let headers = ["Nom de l'objet", "Catégorie", "Aux Orchidées", "Nombre d'intéressés", ...family];
       let csvContent = "\uFEFF" + headers.map(h => `"${h}"`).join(";") + "\n";
       
       activeItems.forEach(item => {
