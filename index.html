@@ -79,7 +79,6 @@
       "Jean-Pascal enfant": ["Jean-Pascal enfant"]
     };
 
-    // Configuration des séries de photos (nombre max testé automatiquement jusqu'à 200 par série)
     const MAX_PER_CATEGORY = 200;
     const PHOTO_CONFIG = [
       { prefix: "Décoration", category: "Décoration" },
@@ -102,7 +101,6 @@
     let isExporting = false;
     let isScanning = true;
 
-    // Vérifie de façon asynchrone si une photo existe sur le serveur
     async function checkImageExists(url, fallbackUrls = []) {
       const urls = [url, ...fallbackUrls];
       for (const u of urls) {
@@ -114,7 +112,6 @@
       return false;
     }
 
-    // Détection dynamique de toutes les photos présentes
     async function buildInventoryDynamic() {
       items = [];
       let idCounter = 1;
@@ -133,7 +130,6 @@
             `${encodeURIComponent(fileNameBase)}.png`
           ];
 
-          // Test de présence de l'image
           const exists = await checkImageExists(primaryUrl, fallbacks);
 
           if (exists) {
@@ -154,7 +150,6 @@
             });
           } else {
             consecutiveFailures++;
-            // Si 3 nombres consécutifs n'existent pas, on arrête la recherche pour cette catégorie
             if (consecutiveFailures >= 3) break;
           }
         }
@@ -259,8 +254,10 @@
       }
     }
 
+    // ACCÈS MAÎTRE : Thierry a le contrôle total sur TOUS les membres
     function canControl(targetMember) {
       if (!currentUser) return false;
+      if (currentUser === "Thierry") return true; // Thierry peut modifier tout le monde sans mot de passe
       const allowedTargets = CONTROL_PERMISSIONS[currentUser] || [currentUser];
       return allowedTargets.includes(targetMember);
     }
