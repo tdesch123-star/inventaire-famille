@@ -79,12 +79,12 @@
       "Jean-Pascal enfant": ["Jean-Pascal enfant"]
     };
 
-    // Nombres exacts déclarés
+    // Nombre d'images ajusté par catégorie
     const PHOTO_CONFIG = [
-      { prefix: "Décoration", count: 74, category: "Décoration" },
+      { prefix: "Décoration", count: 75, category: "Décoration" },
       { prefix: "Mobilier", count: 49, category: "Meuble" },
       { prefix: "Vaisselle-Argenterie", count: 64, category: "Vaisselle Argenterie" },
-      { prefix: "Divers", count: 39, category: "Divers" },
+      { prefix: "Divers", count: 38, category: "Divers" },
       { prefix: "Peinture", count: 27, category: "Peinture" },
       { prefix: "Vaisselle divers", count: 20, category: "Vaisselle divers" },
       { prefix: "Electromenager", count: 8, category: "Électroménager" }
@@ -100,7 +100,7 @@
     let commentsModalItemId = null;
     let isExporting = false;
 
-    const PLACEHOLDER_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='200' height='200' fill='%231e293b'/><text x='50%25' y='45%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-size='13' font-family='sans-serif'>Image introuvable</text><text x='50%25' y='60%25' dominant-baseline='middle' text-anchor='middle' fill='%23475569' font-size='10' font-family='sans-serif'>Vérifier le nom du fichier</text></svg>";
+    const PLACEHOLDER_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='200' height='200' fill='%231e293b'/><text x='50%25' y='45%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-size='13' font-family='sans-serif'>Image introuvable</text><text x='50%25' y='60%25' dominant-baseline='middle' text-anchor='middle' fill='%23475569' font-size='10' font-family='sans-serif'>Vérifier le nom sur GitHub</text></svg>";
 
     function buildInventory() {
       items = [];
@@ -108,16 +108,28 @@
       PHOTO_CONFIG.forEach(series => {
         for (let i = 1; i <= series.count; i++) {
           const fileNameBase = `${series.prefix} (${i})`;
-          // Clé unique textuelle pour éviter les collisions d'anciens IDs numériques
-          const uniqueId = `item_${series.prefix.replace(/[^a-zA-Z0-0]/g, '')}_${i}`;
+          const cleanPrefix = series.prefix.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const altPrefixBase = `${cleanPrefix} (${i})`;
+          const meublePrefixBase = series.prefix === "Mobilier" ? `Meuble (${i})` : fileNameBase;
+
+          const uniqueId = `item_${series.prefix.replace(/[^a-zA-Z0-9]/g, '')}_${i}`;
           
+          const imageVariants = [
+            `${encodeURIComponent(fileNameBase)}.JPG`,
+            `${encodeURIComponent(fileNameBase)}.jpg`,
+            `${encodeURIComponent(fileNameBase)}.jpeg`,
+            `${encodeURIComponent(altPrefixBase)}.JPG`,
+            `${encodeURIComponent(altPrefixBase)}.jpg`,
+            `${encodeURIComponent(meublePrefixBase)}.JPG`,
+            `${encodeURIComponent(meublePrefixBase)}.jpg`,
+            `${encodeURIComponent(fileNameBase)}.png`
+          ];
+
           items.push({
             id: uniqueId,
             name: fileNameBase,
-            url: `${encodeURIComponent(fileNameBase)}.JPG`,
-            fallbackUrl: `${encodeURIComponent(fileNameBase)}.jpg`,
-            fallbackUrl2: `${encodeURIComponent(fileNameBase)}.jpeg`,
-            fallbackUrl3: `${encodeURIComponent(fileNameBase)}.png`,
+            variants: imageVariants,
+            url: imageVariants[0],
             category: series.category,
             availableLater: false,
             reservedFratrie: false,
@@ -126,6 +138,25 @@
           });
         }
       });
+    }
+
+    function handleImageError(imgElement, itemId) {
+      const item = items.find(i => i.id === itemId);
+      if (!item) return;
+
+      if (imgElement.dataset.variantIndex === undefined) {
+        imgElement.dataset.variantIndex = "0";
+      }
+
+      let currentIndex = parseInt(imgElement.dataset.variantIndex, 10) + 1;
+
+      if (currentIndex < item.variants.length) {
+        imgElement.dataset.variantIndex = currentIndex.toString();
+        imgElement.src = item.variants[currentIndex];
+      } else {
+        imgElement.onerror = null;
+        imgElement.src = PLACEHOLDER_IMG;
+      }
     }
 
     function startFirebaseAuthAndSync() {
@@ -311,9 +342,8 @@
       }
     }
 
-    async function fetchImageBuffer(url, fallbackUrls = []) {
-      const urlsToTry = [url, ...fallbackUrls];
-      for (const u of urlsToTry) {
+    async function fetchImageBuffer(variants = []) {
+      for (const u of variants) {
         try {
           const res = await fetch(u);
           if (res.ok) {
@@ -389,7 +419,7 @@
           row.getCell(5).alignment = { vertical: 'middle', horizontal: 'center' };
           row.getCell(6).alignment = { vertical: 'middle', horizontal: 'center' };
 
-          const imgData = await fetchImageBuffer(item.url, [item.fallbackUrl, item.fallbackUrl2, item.fallbackUrl3]);
+          const imgData = await fetchImageBuffer(item.variants);
           if (imgData) {
             const imageId = workbook.addImage({
               buffer: imgData.buffer,
@@ -571,10 +601,10 @@
                 <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700/60 shadow flex flex-col relative group">
                   <div class="relative aspect-square bg-slate-950/80 overflow-hidden cursor-pointer p-1" onclick="openLightboxByItem('${item.id}')">
                     <img 
-                      src="${item.url}" 
+                      src="${item.variants[0]}" 
                       loading="lazy" 
                       decoding="async" 
-                      onerror="this.onerror=null; this.src='${item.fallbackUrl}'; this.onerror=function(){this.src='${item.fallbackUrl2}'; this.onerror=function(){this.src='${item.fallbackUrl3}'; this.onerror=function(){this.src='${PLACEHOLDER_IMG}';};};};" 
+                      onerror="handleImageError(this, '${item.id}')" 
                       class="w-full h-full object-contain group-hover:scale-105 transition duration-300"
                     >
                     
@@ -765,7 +795,7 @@
           <div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4" onclick="closeLightbox()">
             <div class="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center justify-center" onclick="event.stopPropagation()">
               <button onclick="closeLightbox()" class="absolute -top-10 right-0 text-white text-2xl hover:text-amber-400"><i class="fa-solid fa-xmark"></i></button>
-              <img src="${items[lightboxIndex].url}" onerror="this.onerror=null; this.src='${items[lightboxIndex].fallbackUrl}'; this.onerror=function(){this.src='${items[lightboxIndex].fallbackUrl2}'; this.onerror=function(){this.src='${PLACEHOLDER_IMG}';};};" class="max-h-[80vh] max-w-full object-contain rounded-lg">
+              <img src="${items[lightboxIndex].variants[0]}" onerror="handleImageError(this, '${items[lightboxIndex].id}')" class="max-h-[80vh] max-w-full object-contain rounded-lg">
               <p class="text-slate-300 text-sm mt-3 font-medium">${items[lightboxIndex].name} — <span class="text-amber-400">${items[lightboxIndex].category}</span></p>
             </div>
           </div>
