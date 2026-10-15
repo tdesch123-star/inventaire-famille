@@ -9,6 +9,7 @@
   
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
   <!-- ExcelJS pour l'intégration des vignettes et fonctionnalités avancées Excel -->
@@ -29,6 +30,7 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+    const auth = firebase.auth();
 
     const USER_AUTH = {
       "Thierry": "Thierry4829",
@@ -121,6 +123,16 @@
           });
         }
       });
+    }
+
+    function startFirebaseAuthAndSync() {
+      auth.signInAnonymously()
+        .then(() => {
+          initRealtimeSync();
+        })
+        .catch((error) => {
+          console.error("Erreur d'authentification Firebase :", error);
+        });
     }
 
     function initRealtimeSync() {
@@ -780,7 +792,7 @@
 
     buildInventory();
     checkSavedAuth();
-    initRealtimeSync();
+    startFirebaseAuthAndSync();
     render();
   </script>
 </body>
