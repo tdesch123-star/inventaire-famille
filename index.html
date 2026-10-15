@@ -79,7 +79,7 @@
       "Jean-Pascal enfant": ["Jean-Pascal enfant"]
     };
 
-    // Nombre d'images ajusté par catégorie
+    // Configuration des séries de photos
     const PHOTO_CONFIG = [
       { prefix: "Décoration", count: 74, category: "Décoration" },
       { prefix: "Mobilier", count: 49, category: "Meuble" },
@@ -100,6 +100,9 @@
     let commentsModalItemId = null;
     let isExporting = false;
 
+    // Image SVG générée dynamiquement si la photo est introuvable sur le serveur
+    const PLACEHOLDER_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='200' height='200' fill='%231e293b'/><text x='50%25' y='45%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-size='14' font-family='sans-serif'>Photo non trouvée</text><text x='50%25' y='60%25' dominant-baseline='middle' text-anchor='middle' fill='%23475569' font-size='10' font-family='sans-serif'>Vérifier le nom sur GitHub</text></svg>";
+
     function buildInventory() {
       items = [];
       let idCounter = 1;
@@ -107,14 +110,16 @@
       PHOTO_CONFIG.forEach(series => {
         for (let i = 1; i <= series.count; i++) {
           const fileNameBase = `${series.prefix} (${i})`;
+          // Variante alternative si le nom sur github utilise "Meuble" au lieu de "Mobilier"
+          const altFileNameBase = series.prefix === "Mobilier" ? `Meuble (${i})` : fileNameBase;
           
           items.push({
             id: idCounter++,
             name: fileNameBase,
             url: `${encodeURIComponent(fileNameBase)}.JPG`,
             fallbackUrl: `${encodeURIComponent(fileNameBase)}.jpg`,
-            fallbackUrl2: `${encodeURIComponent(fileNameBase)}.jpeg`,
-            fallbackUrl3: `${encodeURIComponent(fileNameBase)}.png`,
+            fallbackUrl2: `${encodeURIComponent(altFileNameBase)}.JPG`,
+            fallbackUrl3: `${encodeURIComponent(altFileNameBase)}.jpg`,
             category: series.category,
             availableLater: false,
             reservedFratrie: false,
@@ -571,7 +576,7 @@
                       src="${item.url}" 
                       loading="lazy" 
                       decoding="async" 
-                      onerror="this.onerror=null; this.src='${item.fallbackUrl}'; this.onerror=function(){this.src='${item.fallbackUrl2}'; this.onerror=function(){this.src='${item.fallbackUrl3}';};};" 
+                      onerror="this.onerror=null; this.src='${item.fallbackUrl}'; this.onerror=function(){this.src='${item.fallbackUrl2}'; this.onerror=function(){this.src='${item.fallbackUrl3}'; this.onerror=function(){this.src='${PLACEHOLDER_IMG}';};};};" 
                       class="w-full h-full object-contain group-hover:scale-105 transition duration-300"
                     >
                     
