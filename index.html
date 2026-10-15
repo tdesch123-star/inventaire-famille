@@ -337,8 +337,8 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             ${filteredItems.map((item) => `
               <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700/60 shadow flex flex-col relative group">
-                <div class="relative aspect-square bg-slate-950 overflow-hidden cursor-pointer" onclick="openLightboxByItem(${item.id})">
-                  <img src="${item.url}" onerror="this.onerror=null; this.src='${item.fallbackUrl}'; this.onerror=function(){this.src='${item.fallbackUrl2}'; this.onerror=function(){this.src='${item.fallbackUrl3}';};};" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy">
+                <div class="relative aspect-square bg-slate-950/80 overflow-hidden cursor-pointer p-1" onclick="openLightboxByItem(${item.id})">
+                  <img src="${item.url}" onerror="this.onerror=null; this.src='${item.fallbackUrl}'; this.onerror=function(){this.src='${item.fallbackUrl2}'; this.onerror=function(){this.src='${item.fallbackUrl3}';};};" class="w-full h-full object-contain group-hover:scale-105 transition duration-300" loading="lazy">
                   
                   ${item.availableLater ? `
                     <div class="absolute top-2 right-2 z-10 flex items-center justify-center" title="Aux Orchidées">
