@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="scroll-smooth">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,7 +15,7 @@
   <!-- ExcelJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
+<body class="bg-slate-900 text-slate-100 min-h-screen relative">
   <div id="app"></div>
   <script>
     const firebaseConfig = {
@@ -79,7 +79,6 @@
       "Jean-Pascal enfant": ["Jean-Pascal enfant"]
     };
 
-    // Nombre d'images ajusté par catégorie
     const PHOTO_CONFIG = [
       { prefix: "Décoration", count: 75, category: "Décoration" },
       { prefix: "Mobilier", count: 49, category: "Meuble" },
@@ -101,6 +100,10 @@
     let isExporting = false;
 
     const PLACEHOLDER_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='200' height='200' fill='%231e293b'/><text x='50%25' y='45%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-size='13' font-family='sans-serif'>Image introuvable</text><text x='50%25' y='60%25' dominant-baseline='middle' text-anchor='middle' fill='%23475569' font-size='10' font-family='sans-serif'>Vérifier le nom sur GitHub</text></svg>";
+
+    function scrollToTop() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     function buildInventory() {
       items = [];
@@ -550,7 +553,7 @@
           </div>
         </header>
 
-        <main class="max-w-[1600px] mx-auto p-3 space-y-4">
+        <main class="max-w-[1600px] mx-auto p-3 space-y-4 pb-20">
           <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80 flex flex-wrap items-center gap-2 shadow">
             <span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
               <i class="fa-solid fa-eye"></i> Consulter les choix de :
@@ -722,7 +725,24 @@
               `;
             }).join('')}
           </div>
+
+          <!-- Bouton de fin de liste -->
+          <div class="pt-8 pb-4 flex justify-center">
+            <button onclick="scrollToTop()" class="px-5 py-2.5 bg-slate-800 hover:bg-amber-500 text-slate-300 hover:text-slate-950 font-bold text-xs rounded-xl border border-slate-700 transition flex items-center gap-2 shadow-lg">
+              <i class="fa-solid fa-arrow-up"></i>
+              <span>Remonter en haut de page</span>
+            </button>
+          </div>
         </main>
+
+        <!-- Bouton Flottant fixe en bas à droite -->
+        <button 
+          onclick="scrollToTop()" 
+          title="Remonter en haut"
+          class="fixed bottom-6 right-6 z-40 bg-amber-500 hover:bg-amber-400 text-slate-950 w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition transform hover:scale-110 active:scale-95 border border-amber-300/50"
+        >
+          <i class="fa-solid fa-arrow-up text-lg font-bold"></i>
+        </button>
 
         <!-- Modale Catégorie (Thierry) -->
         ${editingCategoryItemId !== null && currentUser === "Thierry" ? `
