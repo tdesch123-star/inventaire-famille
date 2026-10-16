@@ -79,6 +79,10 @@
       "Jean-Pascal enfant": ["Jean-Pascal enfant"]
     };
 
+    const EXCLUDED_ITEMS = [
+      "Décoration (6)"
+    ];
+
     const PHOTO_CONFIG = [
       { prefix: "Décoration", count: 75, category: "Décoration" },
       { prefix: "Mobilier", count: 49, category: "Meuble" },
@@ -111,6 +115,11 @@
       PHOTO_CONFIG.forEach(series => {
         for (let i = 1; i <= series.count; i++) {
           const fileNameBase = `${series.prefix} (${i})`;
+
+          if (EXCLUDED_ITEMS.includes(fileNameBase)) {
+            continue;
+          }
+
           const cleanPrefix = series.prefix.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
           const altPrefixBase = `${cleanPrefix} (${i})`;
           const meublePrefixBase = series.prefix === "Mobilier" ? `Meuble (${i})` : fileNameBase;
@@ -136,6 +145,7 @@
             category: series.category,
             availableLater: false,
             reservedFratrie: false,
+            deleted: false,
             interests: [],
             comments: []
           });
@@ -181,6 +191,7 @@
               item.interests = data[item.id].interests || [];
               item.availableLater = data[item.id].availableLater || false;
               item.reservedFratrie = data[item.id].reservedFratrie || false;
+              item.deleted = data[item.id].deleted || false;
               item.comments = data[item.id].comments || [];
               if (data[item.id].category) item.category = data[item.id].category;
             }
@@ -195,9 +206,19 @@
         interests: item.interests || [],
         availableLater: !!item.availableLater,
         reservedFratrie: !!item.reservedFratrie,
+        deleted: !!item.deleted,
         category: item.category,
         comments: item.comments || []
       });
+    }
+
+    function deleteItem(id) {
+      if (currentUser !== "Thierry") return;
+      const item = items.find(i => i.id === id);
+      if (item && confirm(`Voulez-vous vraiment supprimer "${item.name}" de l'inventaire ?`)) {
+        item.deleted = true;
+        saveItemState(item);
+      }
     }
 
     function checkSavedAuth() {
@@ -363,7 +384,7 @@
 
     async function exportExcelWithImages() {
       const userIsParent = isParent(currentUser);
-      const activeItems = items.filter(i => userIsParent || !i.reservedFratrie);
+      const activeItems = items.filter(i => !i.deleted && (userIsParent || !i.reservedFratrie));
       if (activeItems.length === 0) return alert("Aucun objet à exporter.");
 
       isExporting = true;
@@ -506,7 +527,7 @@
 
       const userIsParent = isParent(currentUser);
 
-      const activeItems = items.filter(i => userIsParent || !i.reservedFratrie);
+      const activeItems = items.filter(i => !i.deleted && (userIsParent || !i.reservedFratrie));
 
       const filteredItems = activeItems.filter(item => {
         let matchCategory = false;
@@ -687,6 +708,16 @@
                             >
                               <i class="fa-solid fa-pen-to-square"></i>
                               <span>Changer</span>
+                            </button>
+
+                            <!-- Bouton Supprimer exclusif pour Thierry -->
+                            <button 
+                              onclick="deleteItem('${item.id}')" 
+                              class="bg-rose-950/60 hover:bg-rose-600 text-rose-300 hover:text-white text-[9px] font-bold px-1.5 py-0.5 rounded transition flex items-center gap-1 border border-rose-800/50"
+                              title="Supprimer cet objet de l'inventaire"
+                            >
+                              <i class="fa-solid fa-trash-can"></i>
+                              <span>Supprimer</span>
                             </button>
                           ` : ''}
                         </div>
