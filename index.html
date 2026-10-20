@@ -94,6 +94,7 @@
     ];
 
     let items = [];
+    let customItems = [];
     let currentUser = null;
     let authError = "";
     let activeFilterCategory = "Tous";
@@ -101,6 +102,7 @@
     let lightboxIndex = null;
     let editingCategoryItemId = null;
     let commentsModalItemId = null;
+    let isAddingCustomItem = false;
     let isExporting = false;
 
     const PLACEHOLDER_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='200' height='200' fill='%231e293b'/><text x='50%25' y='45%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-size='13' font-family='sans-serif'>Image introuvable</text><text x='50%25' y='60%25' dominant-baseline='middle' text-anchor='middle' fill='%23475569' font-size='10' font-family='sans-serif'>Vérifier le nom sur GitHub</text></svg>";
@@ -146,6 +148,7 @@
             availableLater: false,
             reservedFratrie: false,
             deleted: false,
+            isCustom: false,
             interests: [],
             comments: []
           });
@@ -184,32 +187,104 @@
 
     function initRealtimeSync() {
       db.ref('inventory').on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          items.forEach(item => {
-            if (data[item.id]) {
-              item.interests = data[item.id].interests || [];
-              item.availableLater = data[item.id].availableLater || false;
-              item.reservedFratrie = data[item.id].reservedFratrie || false;
-              item.deleted = data[item.id].deleted || false;
-              item.comments = data[item.id].comments || [];
-              if (data[item.id].category) item.category = data[item.id].category;
-            }
-          });
-          render();
-        }
+        const data = snapshot.val() || {};
+        
+        // Mettre à jour les objets standards
+        items.forEach(item => {
+          if (!item.isCustom && data[item.id]) {
+            item.interests = data[item.id].interests || [];
+            item.availableLater = data[item.id].availableLater || false;
+            item.reservedFratrie = data[item.id].reservedFratrie || false;
+            item.deleted = data[item.id].deleted || false;
+            item.comments = data[item.id].comments || [];
+            if (data[item.id].category) item.category = data[item.id].category;
+          }
+        });
+
+        // Charger ou mettre à jour les objets ajoutés sur-mesure
+        const customKeys = Object.keys(data).filter(k => k.startsWith('custom_item_'));
+        customKeys.forEach(k => {
+          const cData = data[k];
+          let existing = items.find(i => i.id === k);
+          const customVariants = [
+            encodeURIComponent(cData.imageFileName || ''),
+            `${encodeURIComponent(cData.imageFileName || '')}.JPG`,
+            `${encodeURIComponent(cData.imageFileName || '')}.jpg`
+          ].filter(Boolean);
+
+          if (!existing) {
+            items.push({
+              id: k,
+              name: cData.name || 'Objet personnalisé',
+              variants: customVariants.length ? customVariants : [PLACEHOLDER_IMG],
+              url: customVariants[0] || PLACEHOLDER_IMG,
+              category: cData.category || 'Non classé',
+              availableLater: !!cData.availableLater,
+              reservedFratrie: !!cData.reservedFratrie,
+              deleted: !!cData.deleted,
+              isCustom: true,
+              interests: cData.interests || [],
+              comments: cData.comments || []
+            });
+          } else {
+            existing.name = cData.name || existing.name;
+            existing.category = cData.category || existing.category;
+            existing.interests = cData.interests || [];
+            existing.availableLater = !!cData.availableLater;
+            existing.reservedFratrie = !!cData.reservedFratrie;
+            existing.deleted = !!cData.deleted;
+            existing.comments = cData.comments || [];
+          }
+        });
+
+        render();
       });
     }
 
     function saveItemState(item) {
       db.ref('inventory/' + item.id).set({
+        name: item.name,
         interests: item.interests || [],
         availableLater: !!item.availableLater,
         reservedFratrie: !!item.reservedFratrie,
         deleted: !!item.deleted,
         category: item.category,
-        comments: item.comments || []
+        comments: item.comments || [],
+        isCustom: !!item.isCustom,
+        imageFileName: item.imageFileName || ''
       });
+    }
+
+    function createCustomItem(name, category, imageFileName) {
+      if (currentUser !== "Thierry") return;
+      const cleanFileName = imageFileName.trim();
+      const uniqueId = `custom_item_${Date.now()}`;
+
+      const customVariants = [
+        encodeURIComponent(cleanFileName),
+        `${encodeURIComponent(cleanFileName)}.JPG`,
+        `${encodeURIComponent(cleanFileName)}.jpg`
+      ];
+
+      const newItem = {
+        id: uniqueId,
+        name: name.trim(),
+        variants: customVariants,
+        url: customVariants[0],
+        category: category,
+        availableLater: false,
+        reservedFratrie: false,
+        deleted: false,
+        isCustom: true,
+        imageFileName: cleanFileName,
+        interests: [],
+        comments: []
+      };
+
+      items.push(newItem);
+      saveItemState(newItem);
+      isAddingCustomItem = false;
+      render();
     }
 
     function deleteItem(id) {
@@ -375,7 +450,6 @@
       }
     }
 
-    // Récupération sécurisée d'image avec timeout de 1.5s pour éviter tout blocage Excel
     async function fetchImageBuffer(variants = []) {
       for (const u of variants) {
         try {
@@ -576,6 +650,13 @@
             </div>
             
             <div class="flex items-center gap-2 flex-wrap">
+              ${currentUser === "Thierry" ? `
+                <button onclick="isAddingCustomItem = true; render();" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow">
+                  <i class="fa-solid fa-plus"></i>
+                  <span>Ajouter un objet</span>
+                </button>
+              ` : ''}
+
               <div class="bg-slate-900 border border-amber-500/30 px-2.5 py-1 rounded-lg flex items-center gap-2">
                 <i class="fa-solid fa-circle-user text-amber-400 text-xs"></i>
                 <span class="text-xs font-semibold text-slate-200">${currentUser}</span>
@@ -802,6 +883,49 @@
             </button>
           </div>
         </main>
+
+        <!-- Modale d'ajout d'objet manuel (Thierry) -->
+        ${isAddingCustomItem ? `
+          <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onclick="isAddingCustomItem = false; render();">
+            <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl" onclick="event.stopPropagation()">
+              <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-amber-400 flex items-center gap-2">
+                  <i class="fa-solid fa-plus-circle"></i> Ajouter un nouvel objet
+                </h3>
+                <button onclick="isAddingCustomItem = false; render();" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+
+              <form onsubmit="event.preventDefault(); createCustomItem(document.getElementById('cName').value, document.getElementById('cCat').value, document.getElementById('cImg').value);" class="space-y-4">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1">Nom de l'objet :</label>
+                  <input type="text" id="cName" placeholder="Ex: Fauteuil Voltaire" required class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-2.5 focus:outline-none focus:border-amber-500">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1">Catégorie :</label>
+                  <select id="cCat" class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-2.5 focus:outline-none focus:border-amber-500">
+                    ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1">Nom exact du fichier photo sur GitHub :</label>
+                  <input type="text" id="cImg" placeholder="Ex: Fauteuil-Voltaire.JPG" required class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-2.5 focus:outline-none focus:border-amber-500">
+                  <p class="text-[10px] text-slate-400 mt-1">Indiquez le nom du fichier déposé sur votre dépôt GitHub.</p>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                  <button type="button" onclick="isAddingCustomItem = false; render();" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl">
+                    Annuler
+                  </button>
+                  <button type="submit" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow">
+                    Enregistrer l'objet
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ` : ''}
 
         <!-- Bouton Flottant fixe en bas à droite -->
         <button 
