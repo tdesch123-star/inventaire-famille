@@ -83,11 +83,12 @@
       "Décoration (6)"
     ];
 
+    // Mise à jour : Décoration à 76 et Divers à 67
     const PHOTO_CONFIG = [
-      { prefix: "Décoration", count: 75, category: "Décoration" },
+      { prefix: "Décoration", count: 76, category: "Décoration" },
       { prefix: "Mobilier", count: 49, category: "Meuble" },
       { prefix: "Vaisselle-Argenterie", count: 64, category: "Vaisselle Argenterie" },
-      { prefix: "Divers", count: 38, category: "Divers" },
+      { prefix: "Divers", count: 67, category: "Divers" },
       { prefix: "Peinture", count: 27, category: "Peinture" },
       { prefix: "Vaisselle divers", count: 20, category: "Vaisselle divers" },
       { prefix: "Electromenager", count: 8, category: "Électroménager" }
@@ -189,7 +190,6 @@
       db.ref('inventory').on('value', (snapshot) => {
         const data = snapshot.val() || {};
         
-        // Mettre à jour les objets standards
         items.forEach(item => {
           if (!item.isCustom && data[item.id]) {
             item.interests = data[item.id].interests || [];
@@ -201,7 +201,6 @@
           }
         });
 
-        // Charger ou mettre à jour les objets ajoutés sur-mesure
         const customKeys = Object.keys(data).filter(k => k.startsWith('custom_item_'));
         customKeys.forEach(k => {
           const cData = data[k];
@@ -979,7 +978,7 @@
                       <div class="flex items-center gap-2">
                         <span>${comm.date || ''}</span>
                         ${(currentUser === "Thierry" || currentUser === comm.author) ? `
-                          <button onclick="deleteComment('${commentsModalItem.id}',${cIdx})" class="text-rose-400 hover:text-rose-300" title="Supprimer"><i class="fa-solid fa-trash-can"></i></button>
+                          <button onclick="deleteComment('${commentsModalItem.id}', ${cIdx})" class="text-rose-400 hover:text-rose-300" title="Supprimer"><i class="fa-solid fa-trash-can"></i></button>
                         ` : ''}
                       </div>
                     </div>
