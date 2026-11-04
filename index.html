@@ -83,7 +83,6 @@
       "Décoration (6)"
     ];
 
-    // Mise à jour : Décoration à 76 et Divers à 67
     const PHOTO_CONFIG = [
       { prefix: "Décoration", count: 76, category: "Décoration" },
       { prefix: "Mobilier", count: 49, category: "Meuble" },
@@ -149,6 +148,8 @@
             availableLater: false,
             reservedFratrie: false,
             deleted: false,
+            valMini: 0,
+            valMaxi: 0,
             isCustom: false,
             interests: [],
             comments: []
@@ -196,6 +197,8 @@
             item.availableLater = data[item.id].availableLater || false;
             item.reservedFratrie = data[item.id].reservedFratrie || false;
             item.deleted = data[item.id].deleted || false;
+            item.valMini = data[item.id].valMini || 0;
+            item.valMaxi = data[item.id].valMaxi || 0;
             item.comments = data[item.id].comments || [];
             if (data[item.id].category) item.category = data[item.id].category;
           }
@@ -221,6 +224,8 @@
               availableLater: !!cData.availableLater,
               reservedFratrie: !!cData.reservedFratrie,
               deleted: !!cData.deleted,
+              valMini: cData.valMini || 0,
+              valMaxi: cData.valMaxi || 0,
               isCustom: true,
               interests: cData.interests || [],
               comments: cData.comments || []
@@ -232,6 +237,8 @@
             existing.availableLater = !!cData.availableLater;
             existing.reservedFratrie = !!cData.reservedFratrie;
             existing.deleted = !!cData.deleted;
+            existing.valMini = cData.valMini || 0;
+            existing.valMaxi = cData.valMaxi || 0;
             existing.comments = cData.comments || [];
           }
         });
@@ -247,6 +254,8 @@
         availableLater: !!item.availableLater,
         reservedFratrie: !!item.reservedFratrie,
         deleted: !!item.deleted,
+        valMini: Number(item.valMini) || 0,
+        valMaxi: Number(item.valMaxi) || 0,
         category: item.category,
         comments: item.comments || [],
         isCustom: !!item.isCustom,
@@ -254,7 +263,17 @@
       });
     }
 
-    function createCustomItem(name, category, imageFileName) {
+    function updateItemValues(id, mini, maxi) {
+      if (currentUser !== "Thierry") return;
+      const item = items.find(i => i.id === id);
+      if (item) {
+        item.valMini = Number(mini) || 0;
+        item.valMaxi = Number(maxi) || 0;
+        saveItemState(item);
+      }
+    }
+
+    function createCustomItem(name, category, imageFileName, valMini = 0, valMaxi = 0) {
       if (currentUser !== "Thierry") return;
       const cleanFileName = imageFileName.trim();
       const uniqueId = `custom_item_${Date.now()}`;
@@ -274,6 +293,8 @@
         availableLater: false,
         reservedFratrie: false,
         deleted: false,
+        valMini: Number(valMini) || 0,
+        valMaxi: Number(valMaxi) || 0,
         isCustom: true,
         imageFileName: cleanFileName,
         interests: [],
@@ -480,10 +501,22 @@
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet("Inventaire");
 
-        const headers = ["Vignette", "Nom de l'objet", "Catégorie", "Aux Orchidées", "Réservé Fratrie", "Nombre d'intéressés", ...family, "Commentaires"];
+        // Construire dynamiquement les en-têtes selon si l'utilisateur est un Parent ou un Enfant
+        const headers = [
+          "Vignette", 
+          "Nom de l'objet", 
+          "Catégorie", 
+          ...(userIsParent ? ["Valeur Mini Brocanteur (€)", "Valeur Maxi Brocanteur (€)"] : []),
+          "Aux Orchidées", 
+          "Réservé Fratrie", 
+          "Nombre d'intéressés", 
+          ...family, 
+          "Commentaires"
+        ];
 
         worksheet.columns = headers.map((header, idx) => {
           if (idx === 0) return { header, key: "image", width: 14 };
+          if (header.includes("Valeur")) return { header, key: `col_${idx}`, width: 22 };
           if (header === "Commentaires") return { header, key: "comments", width: 35 };
           return {
             header,
@@ -510,24 +543,36 @@
 
           row.getCell(2).value = item.name;
           row.getCell(3).value = item.category;
-          row.getCell(4).value = item.availableLater ? "Oui" : "Non";
-          row.getCell(5).value = item.reservedFratrie ? "Oui" : "Non";
-          row.getCell(6).value = item.interests.length;
+
+          let colShift = 0;
+          if (userIsParent) {
+            row.getCell(4).value = Number(item.valMini) || 0;
+            row.getCell(5).value = Number(item.valMaxi) || 0;
+            row.getCell(4).numFmt = '#,##0 €';
+            row.getCell(5).numFmt = '#,##0 €';
+            row.getCell(4).alignment = { vertical: 'middle', horizontal: 'right' };
+            row.getCell(5).alignment = { vertical: 'middle', horizontal: 'right' };
+            colShift = 2;
+          }
+
+          row.getCell(4 + colShift).value = item.availableLater ? "Oui" : "Non";
+          row.getCell(5 + colShift).value = item.reservedFratrie ? "Oui" : "Non";
+          row.getCell(6 + colShift).value = item.interests.length;
 
           family.forEach((member, mIdx) => {
-            row.getCell(7 + mIdx).value = item.interests.includes(member) ? "Oui" : "";
-            row.getCell(7 + mIdx).alignment = { vertical: 'middle', horizontal: 'center' };
+            row.getCell(7 + colShift + mIdx).value = item.interests.includes(member) ? "Oui" : "";
+            row.getCell(7 + colShift + mIdx).alignment = { vertical: 'middle', horizontal: 'center' };
           });
 
           const commentsTxt = (item.comments || []).map(c => `[${c.author}] ${c.text}`).join(' | ');
-          row.getCell(7 + family.length).value = commentsTxt;
-          row.getCell(7 + family.length).alignment = { vertical: 'middle', wrapText: true };
+          row.getCell(7 + colShift + family.length).value = commentsTxt;
+          row.getCell(7 + colShift + family.length).alignment = { vertical: 'middle', wrapText: true };
 
           row.getCell(2).alignment = { vertical: 'middle' };
           row.getCell(3).alignment = { vertical: 'middle' };
-          row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
-          row.getCell(5).alignment = { vertical: 'middle', horizontal: 'center' };
-          row.getCell(6).alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell(4 + colShift).alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell(5 + colShift).alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell(6 + colShift).alignment = { vertical: 'middle', horizontal: 'center' };
 
           const imgData = await fetchImageBuffer(item.variants);
           if (imgData) {
@@ -543,6 +588,36 @@
             } catch (imgErr) {
               console.warn("Image ignorée dans l'export Excel pour " + item.name);
             }
+          }
+        }
+
+        // Ligne de TOTAL DYNAMIQUE (Uniquement pour les parents)
+        if (userIsParent) {
+          const totalRowIndex = activeItems.length + 2;
+          const totalRow = worksheet.getRow(totalRowIndex);
+          totalRow.height = 30;
+
+          totalRow.getCell(3).value = "TOTAL ESTIMATIONS :";
+          totalRow.getCell(3).font = { bold: true, color: { argb: 'FFFFFF' } };
+          totalRow.getCell(3).alignment = { vertical: 'middle', horizontal: 'right' };
+
+          totalRow.getCell(4).value = { formula: `SUM(D2:D${totalRowIndex - 1})` };
+          totalRow.getCell(5).value = { formula: `SUM(E2:E${totalRowIndex - 1})` };
+
+          [4, 5].forEach(colIdx => {
+            const cell = totalRow.getCell(colIdx);
+            cell.font = { bold: true, color: { argb: 'FFFFFF' } };
+            cell.numFmt = '#,##0 €';
+            cell.alignment = { vertical: 'middle', horizontal: 'right' };
+          });
+
+          for (let col = 1; col <= headers.length; col++) {
+            const cell = totalRow.getCell(col);
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F172A' } };
+            cell.border = {
+              top: { style: 'thin', color: { argb: '334155' } },
+              bottom: { style: 'double', color: { argb: 'F59E0B' } }
+            };
           }
         }
 
@@ -725,6 +800,7 @@
             ${filteredItems.map((item) => {
               const hasComments = item.comments && item.comments.length > 0;
               const commentCount = hasComments ? item.comments.length : 0;
+              const hasEstimation = item.valMini > 0 || item.valMaxi > 0;
 
               return `
                 <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700/60 shadow flex flex-col relative group ${item.deleted ? 'opacity-60 border-dashed border-slate-600' : ''}">
@@ -842,6 +918,37 @@
                       <p class="text-[11px] text-slate-400 font-mono truncate" title="${item.name}">${item.name}</p>
                     </div>
 
+                    <!-- Module Estimation Valeur Brocanteur Mini / Maxi (Uniquement pour les Parents) -->
+                    ${userIsParent ? `
+                      <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/40 space-y-1">
+                        <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                          <span>Rachat Brocanteur (€)</span>
+                          ${hasEstimation ? `<span class="text-emerald-400 font-mono">${item.valMini} - ${item.valMaxi} €</span>` : '<span class="text-slate-600 italic">Non estimé</span>'}
+                        </div>
+                        ${currentUser === "Thierry" ? `
+                          <div class="flex items-center gap-1">
+                            <input 
+                              type="number" 
+                              placeholder="Mini" 
+                              value="${item.valMini || ''}" 
+                              onchange="updateItemValues('${item.id}', this.value, document.getElementById('maxi_${item.id}').value)"
+                              id="mini_${item.id}"
+                              class="w-1/2 bg-slate-800 border border-slate-700 text-slate-100 text-[10px] rounded px-1.5 py-0.5 focus:outline-none focus:border-amber-500"
+                            >
+                            <span class="text-slate-500 text-[10px]">-</span>
+                            <input 
+                              type="number" 
+                              placeholder="Maxi" 
+                              value="${item.valMaxi || ''}" 
+                              onchange="updateItemValues('${item.id}', document.getElementById('mini_${item.id}').value, this.value)"
+                              id="maxi_${item.id}"
+                              class="w-1/2 bg-slate-800 border border-slate-700 text-slate-100 text-[10px] rounded px-1.5 py-0.5 focus:outline-none focus:border-amber-500"
+                            >
+                          </div>
+                        ` : ''}
+                      </div>
+                    ` : ''}
+
                     <div class="space-y-1 border-t border-slate-700/50 pt-1.5">
                       <p class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Intéressé(e)s :</p>
                       <div class="flex flex-wrap gap-1">
@@ -894,7 +1001,7 @@
                 <button onclick="isAddingCustomItem = false; render();" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
               </div>
 
-              <form onsubmit="event.preventDefault(); createCustomItem(document.getElementById('cName').value, document.getElementById('cCat').value, document.getElementById('cImg').value);" class="space-y-4">
+              <form onsubmit="event.preventDefault(); createCustomItem(document.getElementById('cName').value, document.getElementById('cCat').value, document.getElementById('cImg').value, document.getElementById('cValMini').value, document.getElementById('cValMaxi').value);" class="space-y-4">
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 mb-1">Nom de l'objet :</label>
                   <input type="text" id="cName" placeholder="Ex: Fauteuil Voltaire" required class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-2.5 focus:outline-none focus:border-amber-500">
@@ -911,6 +1018,17 @@
                   <label class="block text-xs font-semibold text-slate-300 mb-1">Nom exact du fichier photo sur GitHub :</label>
                   <input type="text" id="cImg" placeholder="Ex: Fauteuil-Voltaire.JPG" required class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-2.5 focus:outline-none focus:border-amber-500">
                   <p class="text-[10px] text-slate-400 mt-1">Indiquez le nom du fichier déposé sur votre dépôt GitHub.</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Rachat Brocanteur Mini (€) :</label>
+                    <input type="number" id="cValMini" placeholder="0" class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-2.5 focus:outline-none focus:border-amber-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Rachat Brocanteur Maxi (€) :</label>
+                    <input type="number" id="cValMaxi" placeholder="0" class="w-full bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-xl p-2.5 focus:outline-none focus:border-amber-500">
+                  </div>
                 </div>
 
                 <div class="flex justify-end gap-2 pt-2">
