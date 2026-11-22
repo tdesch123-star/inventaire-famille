@@ -392,7 +392,6 @@
         item.interests = item.interests.filter(m => m !== member);
       } else {
         item.interests.push(member);
-        // Retire automatiquement de "si personne" si coché en intérêt principal
         if (item.ifNobodyInterests && item.ifNobodyInterests.includes(member)) {
           item.ifNobodyInterests = item.ifNobodyInterests.filter(m => m !== member);
         }
@@ -409,7 +408,6 @@
         item.ifNobodyInterests = item.ifNobodyInterests.filter(m => m !== member);
       } else {
         item.ifNobodyInterests.push(member);
-        // Retire automatiquement de "intéressé" principal si basculé en "si personne"
         if (item.interests && item.interests.includes(member)) {
           item.interests = item.interests.filter(m => m !== member);
         }
@@ -794,6 +792,23 @@
 
               return `
                 <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700/60 shadow flex flex-col relative group ${item.deleted ? 'opacity-60 border-dashed border-slate-600' : ''}">
+                  <!-- Bandeau Catégorie / Famille au-dessus de la photo -->
+                  <div class="bg-slate-900/90 border-b border-slate-700/80 px-2.5 py-1.5 flex items-center justify-between gap-2">
+                    <span class="text-xs font-bold uppercase tracking-wide text-amber-400 truncate">
+                      <i class="fa-solid fa-tag mr-1 text-[10px] opacity-80"></i>${item.category}
+                    </span>
+                    ${currentUser === "Thierry" && !item.deleted ? `
+                      <button 
+                        onclick="openCategoryModal('${item.id}')" 
+                        class="bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-300 text-[9px] font-medium px-1.5 py-0.5 rounded transition flex items-center gap-1 border border-slate-600/50 shrink-0"
+                        title="Changer la catégorie"
+                      >
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        <span>Changer</span>
+                      </button>
+                    ` : ''}
+                  </div>
+
                   <div class="relative aspect-square bg-slate-950/80 overflow-hidden cursor-pointer p-1" onclick="openLightboxByItem('${item.id}')">
                     <img 
                       src="${item.variants[0]}" 
@@ -836,7 +851,7 @@
                   <div class="p-2.5 flex-1 flex flex-col justify-between space-y-2">
                     <div>
                       <div class="flex justify-between items-center gap-1 mb-1.5">
-                        <span class="text-[11px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded truncate">${item.category}</span>
+                        <p class="text-[11px] text-slate-300 font-mono truncate" title="${item.name}">${item.name}</p>
                         
                         <div class="flex items-center gap-1 flex-wrap justify-end">
                           ${!item.deleted ? `
@@ -883,15 +898,6 @@
                               </button>
 
                               <button 
-                                onclick="openCategoryModal('${item.id}')" 
-                                class="bg-slate-700/80 hover:bg-amber-500 hover:text-slate-950 text-slate-300 text-[9px] font-medium px-1 py-0.5 rounded transition flex items-center gap-1 border border-slate-600/50"
-                                title="Changer la catégorie"
-                              >
-                                <i class="fa-solid fa-pen-to-square"></i>
-                                <span>Changer</span>
-                              </button>
-
-                              <button 
                                 onclick="deleteItem('${item.id}')" 
                                 class="bg-rose-950/60 hover:bg-rose-600 text-rose-300 hover:text-white text-[9px] font-bold px-1.5 py-0.5 rounded transition flex items-center gap-1 border border-rose-800/50"
                                 title="Supprimer cet objet de l'inventaire"
@@ -914,7 +920,6 @@
                           `}
                         </div>
                       </div>
-                      <p class="text-[11px] text-slate-400 font-mono truncate" title="${item.name}">${item.name}</p>
                     </div>
 
                     <div class="space-y-2 border-t border-slate-700/50 pt-1.5">
