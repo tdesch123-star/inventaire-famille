@@ -150,6 +150,7 @@
             deleted: false,
             isCustom: false,
             interests: [],
+            ifNobodyInterests: [],
             comments: []
           });
         }
@@ -192,6 +193,7 @@
         items.forEach(item => {
           if (!item.isCustom && data[item.id]) {
             item.interests = data[item.id].interests || [];
+            item.ifNobodyInterests = data[item.id].ifNobodyInterests || [];
             item.availableLater = data[item.id].availableLater || false;
             item.reservedFratrie = data[item.id].reservedFratrie || false;
             item.deleted = data[item.id].deleted || false;
@@ -222,12 +224,14 @@
               deleted: !!cData.deleted,
               isCustom: true,
               interests: cData.interests || [],
+              ifNobodyInterests: cData.ifNobodyInterests || [],
               comments: cData.comments || []
             });
           } else {
             existing.name = cData.name || existing.name;
             existing.category = cData.category || existing.category;
             existing.interests = cData.interests || [];
+            existing.ifNobodyInterests = cData.ifNobodyInterests || [];
             existing.availableLater = !!cData.availableLater;
             existing.reservedFratrie = !!cData.reservedFratrie;
             existing.deleted = !!cData.deleted;
@@ -243,6 +247,7 @@
       db.ref('inventory/' + item.id).set({
         name: item.name,
         interests: item.interests || [],
+        ifNobodyInterests: item.ifNobodyInterests || [],
         availableLater: !!item.availableLater,
         reservedFratrie: !!item.reservedFratrie,
         deleted: !!item.deleted,
@@ -276,6 +281,7 @@
         isCustom: true,
         imageFileName: cleanFileName,
         interests: [],
+        ifNobodyInterests: [],
         comments: []
       };
 
@@ -386,6 +392,27 @@
         item.interests = item.interests.filter(m => m !== member);
       } else {
         item.interests.push(member);
+        // Retire automatiquement de "si personne" si coché en intérêt principal
+        if (item.ifNobodyInterests && item.ifNobodyInterests.includes(member)) {
+          item.ifNobodyInterests = item.ifNobodyInterests.filter(m => m !== member);
+        }
+      }
+      saveItemState(item);
+    }
+
+    function toggleIfNobodyInterest(id, member) {
+      if (!canControl(member)) return;
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+      if (!item.ifNobodyInterests) item.ifNobodyInterests = [];
+      if (item.ifNobodyInterests.includes(member)) {
+        item.ifNobodyInterests = item.ifNobodyInterests.filter(m => m !== member);
+      } else {
+        item.ifNobodyInterests.push(member);
+        // Retire automatiquement de "intéressé" principal si basculé en "si personne"
+        if (item.interests && item.interests.includes(member)) {
+          item.interests = item.interests.filter(m => m !== member);
+        }
       }
       saveItemState(item);
     }
@@ -486,13 +513,17 @@
           "Catégorie", 
           "Aux Orchidées", 
           "Réservé Fratrie", 
+          "Non sélectionné",
           "Nombre d'intéressés", 
+          "J'en veux bien si personne",
           ...family, 
           "Commentaires"
         ];
 
         worksheet.columns = headers.map((header, idx) => {
           if (idx === 0) return { header, key: "image", width: 14 };
+          if (header === "J'en veux bien si personne") return { header, key: "ifNobody", width: 28 };
+          if (header === "Non sélectionné") return { header, key: "notSelected", width: 18 };
           if (header === "Commentaires") return { header, key: "comments", width: 35 };
           return {
             header,
@@ -517,26 +548,33 @@
           const row = worksheet.getRow(rowIndex);
           row.height = 55;
 
+          const ifNobodyList = item.ifNobodyInterests || [];
+          const isUnselected = (item.interests.length === 0 && ifNobodyList.length === 0);
+
           row.getCell(2).value = item.name;
           row.getCell(3).value = item.category;
           row.getCell(4).value = item.availableLater ? "Oui" : "Non";
           row.getCell(5).value = item.reservedFratrie ? "Oui" : "Non";
-          row.getCell(6).value = item.interests.length;
+          row.getCell(6).value = isUnselected ? "Oui" : "Non";
+          row.getCell(7).value = item.interests.length;
+          row.getCell(8).value = ifNobodyList.join(', ');
 
           family.forEach((member, mIdx) => {
-            row.getCell(7 + mIdx).value = item.interests.includes(member) ? "Oui" : "";
-            row.getCell(7 + mIdx).alignment = { vertical: 'middle', horizontal: 'center' };
+            row.getCell(9 + mIdx).value = item.interests.includes(member) ? "Oui" : "";
+            row.getCell(9 + mIdx).alignment = { vertical: 'middle', horizontal: 'center' };
           });
 
           const commentsTxt = (item.comments || []).map(c => `[${c.author}] ${c.text}`).join(' | ');
-          row.getCell(7 + family.length).value = commentsTxt;
-          row.getCell(7 + family.length).alignment = { vertical: 'middle', wrapText: true };
+          row.getCell(9 + family.length).value = commentsTxt;
+          row.getCell(9 + family.length).alignment = { vertical: 'middle', wrapText: true };
 
           row.getCell(2).alignment = { vertical: 'middle' };
           row.getCell(3).alignment = { vertical: 'middle' };
           row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
           row.getCell(5).alignment = { vertical: 'middle', horizontal: 'center' };
           row.getCell(6).alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell(7).alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell(8).alignment = { vertical: 'middle', wrapText: true };
 
           const imgData = await fetchImageBuffer(item.variants);
           if (imgData) {
@@ -629,6 +667,7 @@
       const activeItems = items.filter(i => (activeFilterCategory === 'DELETED') ? i.deleted : (!i.deleted && (userIsParent || !i.reservedFratrie)));
 
       const filteredItems = activeItems.filter(item => {
+        const ifNobodyList = item.ifNobodyInterests || [];
         let matchCategory = false;
         if (activeFilterCategory === 'Tous' || activeFilterCategory === 'DELETED') {
           matchCategory = true;
@@ -636,16 +675,22 @@
           matchCategory = item.availableLater;
         } else if (activeFilterCategory === 'RESERVED_FRATRIE') {
           matchCategory = item.reservedFratrie;
+        } else if (activeFilterCategory === 'IF_NOBODY') {
+          matchCategory = ifNobodyList.length > 0;
+        } else if (activeFilterCategory === 'UNSELECTED') {
+          matchCategory = (item.interests.length === 0 && ifNobodyList.length === 0);
         } else {
           matchCategory = (item.category === activeFilterCategory);
         }
 
-        const matchMember = (activeFilterMember === 'Tous' || item.interests.includes(activeFilterMember));
+        const matchMember = (activeFilterMember === 'Tous' || item.interests.includes(activeFilterMember) || ifNobodyList.includes(activeFilterMember));
         return matchCategory && matchMember;
       });
 
       const dispoLaterCount = items.filter(i => !i.deleted && i.availableLater).length;
       const reservedFratrieCount = items.filter(i => !i.deleted && i.reservedFratrie).length;
+      const ifNobodyCount = items.filter(i => !i.deleted && (userIsParent || !i.reservedFratrie) && (i.ifNobodyInterests && i.ifNobodyInterests.length > 0)).length;
+      const unselectedCount = items.filter(i => !i.deleted && (userIsParent || !i.reservedFratrie) && i.interests.length === 0 && (!i.ifNobodyInterests || i.ifNobodyInterests.length === 0)).length;
       const deletedCount = items.filter(i => i.deleted).length;
       const commentsModalItem = commentsModalItemId ? items.find(i => i.id === commentsModalItemId) : null;
 
@@ -690,7 +735,7 @@
               Voir tout le monde
             </button>
             ${family.map(f => {
-              const count = items.filter(i => !i.deleted && i.interests.includes(f)).length;
+              const count = items.filter(i => !i.deleted && (i.interests.includes(f) || (i.ifNobodyInterests && i.ifNobodyInterests.includes(f)))).length;
               const isActive = activeFilterMember === f;
               const isChild = f.includes("enfant");
               return `
@@ -709,6 +754,16 @@
             ${CATEGORIES.map(c => `
               <button onclick="setCategoryFilter('${c}')" class="px-2.5 py-1 rounded-full text-xs font-semibold ${activeFilterCategory === c ? 'bg-amber-500 text-slate-900 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">${c}</button>
             `).join('')}
+
+            <button onclick="setCategoryFilter('IF_NOBODY')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1 ${activeFilterCategory === 'IF_NOBODY' ? 'bg-emerald-500 text-slate-950 font-bold shadow' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20'}">
+              <span>🟢 Si personne</span>
+              <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'IF_NOBODY' ? 'bg-slate-950/30 text-slate-950' : 'bg-emerald-500/20 text-emerald-300'}">${ifNobodyCount}</span>
+            </button>
+
+            <button onclick="setCategoryFilter('UNSELECTED')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1 ${activeFilterCategory === 'UNSELECTED' ? 'bg-sky-500 text-slate-950 font-bold shadow' : 'bg-sky-500/10 text-sky-400 border border-sky-500/30 hover:bg-sky-500/20'}">
+              <span>⚪ Non sélectionné</span>
+              <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'UNSELECTED' ? 'bg-slate-950/30 text-slate-950' : 'bg-sky-500/20 text-sky-300'}">${unselectedCount}</span>
+            </button>
 
             <button onclick="setCategoryFilter('DISPO_LATER')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1 ${activeFilterCategory === 'DISPO_LATER' ? 'bg-yellow-300 text-slate-950 font-bold shadow' : 'bg-yellow-300/10 text-yellow-300 border border-yellow-300/30 hover:bg-yellow-300/20'}">
               <span>🟡 Aux Orchidées</span>
@@ -734,6 +789,8 @@
             ${filteredItems.map((item) => {
               const hasComments = item.comments && item.comments.length > 0;
               const commentCount = hasComments ? item.comments.length : 0;
+              const ifNobodyList = item.ifNobodyInterests || [];
+              const hasIfNobody = ifNobodyList.length > 0;
 
               return `
                 <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700/60 shadow flex flex-col relative group ${item.deleted ? 'opacity-60 border-dashed border-slate-600' : ''}">
@@ -747,6 +804,15 @@
                     >
                     
                     <div class="absolute top-2 right-2 z-10 flex items-center gap-1">
+                      ${hasIfNobody ? `
+                        <div class="flex items-center justify-center" title="J'en veux bien si personne (${ifNobodyList.join(', ')})">
+                          <span class="relative flex h-10 w-10">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
+                            <span class="relative inline-flex rounded-full h-10 w-10 bg-emerald-500 border-2 border-slate-950 shadow-[0_0_15px_#10b981]"></span>
+                          </span>
+                        </div>
+                      ` : ''}
+
                       ${item.availableLater ? `
                         <div class="flex items-center justify-center" title="Aux Orchidées">
                           <span class="relative flex h-10 w-10">
@@ -851,30 +917,61 @@
                       <p class="text-[11px] text-slate-400 font-mono truncate" title="${item.name}">${item.name}</p>
                     </div>
 
-                    <div class="space-y-1 border-t border-slate-700/50 pt-1.5">
-                      <p class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Intéressé(e)s :</p>
-                      <div class="flex flex-wrap gap-1">
-                        ${family.map(m => {
-                          const interested = item.interests.includes(m);
-                          const hasPermission = canControl(m) && !item.deleted;
-                          
-                          return `
-                            <button 
-                              ${hasPermission ? `onclick="toggleInterest('${item.id}', '${m}')"` : 'disabled'} 
-                              class="text-[10px] px-1.5 py-0.5 rounded transition flex items-center gap-0.5 ${
-                                interested 
-                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold' 
-                                  : 'bg-slate-700/30 text-slate-500 border border-transparent'
-                              } ${
-                                hasPermission 
-                                  ? 'cursor-pointer ring-1 ring-amber-400/50 hover:bg-emerald-500/30' 
-                                  : 'cursor-not-allowed opacity-50'
-                              }"
-                            >
-                              ${interested ? '✓ ' : ''}${m}
-                            </button>
-                          `;
-                        }).join('')}
+                    <div class="space-y-2 border-t border-slate-700/50 pt-1.5">
+                      <div class="space-y-1">
+                        <p class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Intéressé(e)s :</p>
+                        <div class="flex flex-wrap gap-1">
+                          ${family.map(m => {
+                            const interested = item.interests.includes(m);
+                            const hasPermission = canControl(m) && !item.deleted;
+                            
+                            return `
+                              <button 
+                                ${hasPermission ? `onclick="toggleInterest('${item.id}', '${m}')"` : 'disabled'} 
+                                class="text-[10px] px-1.5 py-0.5 rounded transition flex items-center gap-0.5 ${
+                                  interested 
+                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold' 
+                                    : 'bg-slate-700/30 text-slate-500 border border-transparent'
+                                } ${
+                                  hasPermission 
+                                    ? 'cursor-pointer ring-1 ring-amber-400/50 hover:bg-emerald-500/30' 
+                                    : 'cursor-not-allowed opacity-50'
+                                }"
+                              >
+                                ${interested ? '✓ ' : ''}${m}
+                              </button>
+                            `;
+                          }).join('')}
+                        </div>
+                      </div>
+
+                      <div class="space-y-1 border-t border-slate-700/30 pt-1.5">
+                        <p class="text-[9px] uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1">
+                          <span>🟢 J'en veux bien si personne :</span>
+                        </p>
+                        <div class="flex flex-wrap gap-1">
+                          ${family.map(m => {
+                            const interestedIfNobody = ifNobodyList.includes(m);
+                            const hasPermission = canControl(m) && !item.deleted;
+                            
+                            return `
+                              <button 
+                                ${hasPermission ? `onclick="toggleIfNobodyInterest('${item.id}', '${m}')"` : 'disabled'} 
+                                class="text-[10px] px-1.5 py-0.5 rounded transition flex items-center gap-0.5 ${
+                                  interestedIfNobody 
+                                    ? 'bg-emerald-600/30 text-emerald-200 border border-emerald-400/60 font-semibold shadow-sm' 
+                                    : 'bg-slate-700/20 text-slate-500 border border-transparent'
+                                } ${
+                                  hasPermission 
+                                    ? 'cursor-pointer ring-1 ring-emerald-500/30 hover:bg-emerald-500/25' 
+                                    : 'cursor-not-allowed opacity-50'
+                                }"
+                              >
+                                ${interestedIfNobody ? '🟢 ' : ''}${m}
+                              </button>
+                            `;
+                          }).join('')}
+                        </div>
                       </div>
                     </div>
                   </div>
