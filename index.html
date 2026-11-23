@@ -78,8 +78,7 @@
       "Vaisselle Argenterie", 
       "Vaisselle divers", 
       "Électroménager", 
-      "Divers", 
-      "Non classé"
+      "Divers"
     ];
 
     const CATEGORY_STYLES = {
@@ -117,11 +116,6 @@
         btnActive: "bg-indigo-500 text-white font-bold shadow",
         btnInactive: "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/25",
         banner: "bg-indigo-950/60 border-indigo-500/30 text-indigo-300"
-      },
-      "Non classé": {
-        btnActive: "bg-slate-400 text-slate-950 font-bold shadow",
-        btnInactive: "bg-slate-700/60 text-slate-300 border border-slate-600/40 hover:bg-slate-700",
-        banner: "bg-slate-900/90 border-slate-700/80 text-slate-300"
       }
     };
     
@@ -175,6 +169,18 @@
 
     function scrollToTop() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function isItemSelectedByAnyParent(item) {
+      if (!item || !Array.isArray(item.interests)) return false;
+      return item.interests.some(member => PARENTS_LIST.includes(member));
+    }
+
+    function isItemVisibleForUser(item, user) {
+      if (!item || item.deleted) return false;
+      if (isParent(user)) return true;
+      // Pour les enfants : masquer ce qui est réservé fratrie OU déjà sélectionné (1er choix) par au moins un parent
+      return !item.reservedFratrie && !isItemSelectedByAnyParent(item);
     }
 
     function buildInventory() {
@@ -267,7 +273,9 @@
               ...c,
               author: normalizeMemberName(c.author)
             }));
-            if (data[item.id].category) item.category = data[item.id].category;
+            if (data[item.id].category && CATEGORIES.includes(data[item.id].category)) {
+              item.category = data[item.id].category;
+            }
           }
         });
 
@@ -286,13 +294,15 @@
             author: normalizeMemberName(c.author)
           }));
 
+          const validCategory = CATEGORIES.includes(cData.category) ? cData.category : 'Divers';
+
           if (!existing) {
             items.push({
               id: k,
               name: cData.name || 'Objet personnalisé',
               variants: customVariants.length ? customVariants : [PLACEHOLDER_IMG],
               url: customVariants[0] || PLACEHOLDER_IMG,
-              category: cData.category || 'Non classé',
+              category: validCategory,
               availableLater: !!cData.availableLater,
               reservedFratrie: !!cData.reservedFratrie,
               deleted: !!cData.deleted,
@@ -303,7 +313,7 @@
             });
           } else {
             existing.name = cData.name || existing.name;
-            existing.category = cData.category || existing.category;
+            existing.category = validCategory;
             existing.interests = normalizeMemberArray(cData.interests);
             existing.ifNobodyInterests = normalizeMemberArray(cData.ifNobodyInterests);
             existing.availableLater = !!cData.availableLater;
@@ -570,8 +580,7 @@
     }
 
     async function exportExcelWithImages() {
-      const userIsParent = isParent(currentUser);
-      const activeItems = items.filter(i => !i.deleted && (userIsParent || !i.reservedFratrie));
+      const activeItems = items.filter(i => isItemVisibleForUser(i, currentUser));
       if (activeItems.length === 0) return alert("Aucun objet à exporter.");
 
       isExporting = true;
@@ -738,7 +747,10 @@
 
       const userIsParent = isParent(currentUser);
 
-      const activeItems = items.filter(i => (activeFilterCategory === 'DELETED') ? i.deleted : (!i.deleted && (userIsParent || !i.reservedFratrie)));
+      const visibleBaseItems = items.filter(i => isItemVisibleForUser(i, currentUser));
+      const activeItems = (activeFilterCategory === 'DELETED' && currentUser === "Thierry")
+        ? items.filter(i => i.deleted)
+        : visibleBaseItems;
 
       const filteredItems = activeItems.filter(item => {
         const ifNobodyList = item.ifNobodyInterests || [];
@@ -761,10 +773,10 @@
         return matchCategory && matchMember;
       });
 
-      const dispoLaterCount = items.filter(i => !i.deleted && i.availableLater).length;
-      const reservedFratrieCount = items.filter(i => !i.deleted && i.reservedFratrie).length;
-      const ifNobodyCount = items.filter(i => !i.deleted && (userIsParent || !i.reservedFratrie) && (i.ifNobodyInterests && i.ifNobodyInterests.length > 0)).length;
-      const unselectedCount = items.filter(i => !i.deleted && (userIsParent || !i.reservedFratrie) && i.interests.length === 0 && (!i.ifNobodyInterests || i.ifNobodyInterests.length === 0)).length;
+      const dispoLaterCount = visibleBaseItems.filter(i => i.availableLater).length;
+      const reservedFratrieCount = visibleBaseItems.filter(i => i.reservedFratrie).length;
+      const ifNobodyCount = visibleBaseItems.filter(i => i.ifNobodyInterests && i.ifNobodyInterests.length > 0).length;
+      const unselectedCount = visibleBaseItems.filter(i => i.interests.length === 0 && (!i.ifNobodyInterests || i.ifNobodyInterests.length === 0)).length;
       const deletedCount = items.filter(i => i.deleted).length;
       const commentsModalItem = commentsModalItemId ? items.find(i => i.id === commentsModalItemId) : null;
 
@@ -773,7 +785,7 @@
           <div class="max-w-[1600px] mx-auto flex flex-wrap justify-between items-center gap-3">
             <div>
               <h1 class="text-xl font-bold text-amber-400"><i class="fa-solid fa-boxes-packing mr-2"></i>Catalogue de Famille</h1>
-              <p class="text-[11px] text-slate-400">${activeItems.length} objet(s) au total ${activeFilterMember !== 'Tous' || activeFilterCategory !== 'Tous' ? `— <b class="text-amber-300">${filteredItems.length} affiché(s)</b>` : ''}</p>
+              <p class="text-[11px] text-slate-400">${activeItems.length} objet(s) disponible(s) ${activeFilterMember !== 'Tous' || activeFilterCategory !== 'Tous' ? `— <b class="text-amber-300">${filteredItems.length} affiché(s)</b>` : ''}</p>
             </div>
             
             <div class="flex items-center gap-2 flex-wrap">
@@ -810,7 +822,7 @@
               Tout le monde
             </button>
             ${family.map(f => {
-              const count = items.filter(i => !i.deleted && (i.interests.includes(f) || (i.ifNobodyInterests && i.ifNobodyInterests.includes(f)))).length;
+              const count = visibleBaseItems.filter(i => i.interests.includes(f) || (i.ifNobodyInterests && i.ifNobodyInterests.includes(f))).length;
               const isActive = activeFilterMember === f;
               const isChild = f.includes("enfant");
               return `
@@ -831,7 +843,7 @@
             </button>
             
             ${CATEGORIES.map(c => {
-              const st = CATEGORY_STYLES[c] || CATEGORY_STYLES["Non classé"];
+              const st = CATEGORY_STYLES[c] || CATEGORY_STYLES["Divers"];
               return `
                 <button onclick="setCategoryFilter('${c}')" class="px-2.5 py-1 rounded-full text-[11px] transition shrink-0 ${activeFilterCategory === c ? st.btnActive : st.btnInactive}">
                   ${c}
@@ -840,7 +852,7 @@
             }).join('')}
 
             <button onclick="setCategoryFilter('IF_NOBODY')" class="px-2.5 py-1 rounded-full text-[11px] transition flex items-center gap-1 shrink-0 ${activeFilterCategory === 'IF_NOBODY' ? 'bg-emerald-500 text-slate-950 font-bold shadow' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'}">
-              <span>🟢 Moi, si personne n'en veut</span>
+              <span>🟢 Moi, <span class="text-[9.5px] font-normal">si personne n'en veut</span></span>
               <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'IF_NOBODY' ? 'bg-slate-950/30 text-slate-950' : 'bg-emerald-500/20 text-emerald-300'}">${ifNobodyCount}</span>
             </button>
 
@@ -875,7 +887,7 @@
               const commentCount = hasComments ? item.comments.length : 0;
               const ifNobodyList = item.ifNobodyInterests || [];
               const hasIfNobody = ifNobodyList.length > 0;
-              const catStyle = CATEGORY_STYLES[item.category] || CATEGORY_STYLES["Non classé"];
+              const catStyle = CATEGORY_STYLES[item.category] || CATEGORY_STYLES["Divers"];
 
               return `
                 <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700/60 shadow flex flex-col relative group ${item.deleted ? 'opacity-60 border-dashed border-slate-600' : ''}">
@@ -1042,8 +1054,8 @@
                       </div>
 
                       <div class="space-y-1 border-t border-slate-700/30 pt-1">
-                        <p class="text-[9px] uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1">
-                          <span>🟢 Moi, si personne n'en veut :</span>
+                        <p class="text-[9.5px] text-emerald-400 font-bold flex items-baseline gap-1">
+                          <span>🟢 Moi, <span class="text-[8px] font-normal uppercase tracking-wider">si personne n'en veut :</span></span>
                         </p>
                         <div class="flex flex-wrap gap-1">
                           ${family.map(m => {
