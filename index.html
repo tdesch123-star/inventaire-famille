@@ -589,14 +589,14 @@
           "Réservé Fratrie", 
           "Non sélectionné",
           "Nombre d'intéressés", 
-          "J'en veux bien si personne",
+          "Moi, si personne n'en veut",
           ...family, 
           "Commentaires"
         ];
 
         worksheet.columns = headers.map((header, idx) => {
           if (idx === 0) return { header, key: "image", width: 14 };
-          if (header === "J'en veux bien si personne") return { header, key: "ifNobody", width: 28 };
+          if (header === "Moi, si personne n'en veut") return { header, key: "ifNobody", width: 28 };
           if (header === "Non sélectionné") return { header, key: "notSelected", width: 18 };
           if (header === "Commentaires") return { header, key: "comments", width: 35 };
           return {
@@ -840,7 +840,7 @@
             }).join('')}
 
             <button onclick="setCategoryFilter('IF_NOBODY')" class="px-2.5 py-1 rounded-full text-[11px] transition flex items-center gap-1 shrink-0 ${activeFilterCategory === 'IF_NOBODY' ? 'bg-emerald-500 text-slate-950 font-bold shadow' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'}">
-              <span>🟢 Si personne</span>
+              <span>🟢 Moi, si personne n'en veut</span>
               <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'IF_NOBODY' ? 'bg-slate-950/30 text-slate-950' : 'bg-emerald-500/20 text-emerald-300'}">${ifNobodyCount}</span>
             </button>
 
@@ -907,7 +907,7 @@
                     
                     <div class="absolute top-2 right-2 z-10 flex items-center gap-1">
                       ${hasIfNobody ? `
-                        <div class="flex items-center justify-center" title="J'en veux bien si personne (${ifNobodyList.join(', ')})">
+                        <div class="flex items-center justify-center" title="Moi, si personne n'en veut (${ifNobodyList.join(', ')})">
                           <span class="relative flex h-8 w-8">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
                             <span class="relative inline-flex rounded-full h-8 w-8 bg-emerald-500 border-2 border-slate-950 shadow-[0_0_12px_#10b981]"></span>
@@ -1040,7 +1040,7 @@
 
                       <div class="space-y-1 border-t border-slate-700/30 pt-1">
                         <p class="text-[9px] uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1">
-                          <span>🟢 Si personne :</span>
+                          <span>🟢 Moi, si personne n'en veut :</span>
                         </p>
                         <div class="flex flex-wrap gap-1">
                           ${family.map(m => {
