@@ -641,7 +641,7 @@
           row.height = 55;
 
           const ifNobodyList = item.ifNobodyInterests || [];
-          const isUnselected = (item.interests.length === 0 && ifNobodyList.length === 0);
+          const isUnselected = (item.interests.length === 0);
 
           row.getCell(2).value = item.name;
           row.getCell(3).value = item.category;
@@ -773,7 +773,8 @@
         } else if (activeFilterCategory === 'IF_NOBODY') {
           matchCategory = ifNobodyList.length > 0;
         } else if (activeFilterCategory === 'UNSELECTED') {
-          matchCategory = (item.interests.length === 0 && ifNobodyList.length === 0);
+          // Inclut aussi les objets cochés uniquement dans "Moi, si personne n'en veut"
+          matchCategory = (item.interests.length === 0);
         } else {
           matchCategory = (item.category === activeFilterCategory);
         }
@@ -785,7 +786,7 @@
       const dispoLaterCount = visibleBaseItems.filter(i => i.availableLater).length;
       const reservedFratrieCount = visibleBaseItems.filter(i => i.reservedFratrie).length;
       const ifNobodyCount = visibleBaseItems.filter(i => i.ifNobodyInterests && i.ifNobodyInterests.length > 0).length;
-      const unselectedCount = visibleBaseItems.filter(i => i.interests.length === 0 && (!i.ifNobodyInterests || i.ifNobodyInterests.length === 0)).length;
+      const unselectedCount = visibleBaseItems.filter(i => i.interests.length === 0).length;
       const deletedCount = items.filter(i => i.deleted).length;
       const commentsModalItem = commentsModalItemId ? items.find(i => i.id === commentsModalItemId) : null;
 
