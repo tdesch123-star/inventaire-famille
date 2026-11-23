@@ -171,16 +171,25 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function isItemSelectedByAnyParent(item) {
+    function isItemFirstChoiceByAnyParent(item) {
       if (!item || !Array.isArray(item.interests)) return false;
+      // Uniquement les 1ers choix ("Intéressé(e)s") des parents masquent l'objet aux enfants.
+      // Les sélections dans "Moi, si personne n'en veut" (ifNobodyInterests) restent toujours visibles !
       return item.interests.some(member => PARENTS_LIST.includes(member));
     }
 
     function isItemVisibleForUser(item, user) {
       if (!item || item.deleted) return false;
       if (isParent(user)) return true;
-      // Pour les enfants : masquer ce qui est réservé fratrie OU déjà sélectionné (1er choix) par au moins un parent
-      return !item.reservedFratrie && !isItemSelectedByAnyParent(item);
+
+      // Si l'objet a été coché dans "Moi, si personne n'en veut" (et n'est pas un 1er choix d'un parent ni réservé fratrie), il reste visible
+      const hasIfNobody = Array.isArray(item.ifNobodyInterests) && item.ifNobodyInterests.length > 0;
+      if (hasIfNobody && !item.reservedFratrie && !isItemFirstChoiceByAnyParent(item)) {
+        return true;
+      }
+
+      // Pour les enfants : masquer uniquement ce qui est réservé fratrie OU choisi en 1er choix par un parent
+      return !item.reservedFratrie && !isItemFirstChoiceByAnyParent(item);
     }
 
     function buildInventory() {
