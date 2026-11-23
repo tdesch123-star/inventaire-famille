@@ -14,6 +14,11 @@
 
   <!-- ExcelJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+  <style>
+    /* Masquer la barre de défilement sur la ligne des filtres tout en gardant le scroll */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen relative">
   <div id="app"></div>
@@ -37,15 +42,34 @@
       "Thierry enfant": "Thierryenfant8241",
       "Loïc": "Loic7315",
       "Loïc enfant": "Loicenfant5913",
-      "Grégory": "Gregory9142",
-      "Grégory enfant": "Gregoryenfant4628",
-      "Manuela": "Manuela6083",
-      "Manuela enfant": "Manuelaenfant1759",
-      "Jean-Pascal": "Jeanpascal3527",
-      "Jean-Pascal enfant": "Jeanpascalenfant8392"
+      "Greg": "Gregory9142",
+      "Greg enfant": "Gregoryenfant4628",
+      "Manue": "Manuela6083",
+      "Manue enfant": "Manuelaenfant1759",
+      "JP": "Jeanpascal3527",
+      "JP enfant": "Jeanpascalenfant8392"
     };
 
-    const PARENTS_LIST = ["Thierry", "Loïc", "Grégory", "Manuela", "Jean-Pascal"];
+    // Correspondance pour conserver les données existantes dans Firebase
+    const LEGACY_NAME_MAP = {
+      "Grégory": "Greg",
+      "Grégory enfant": "Greg enfant",
+      "Manuela": "Manue",
+      "Manuela enfant": "Manue enfant",
+      "Jean-Pascal": "JP",
+      "Jean-Pascal enfant": "JP enfant"
+    };
+
+    function normalizeMemberName(name) {
+      return LEGACY_NAME_MAP[name] || name;
+    }
+
+    function normalizeMemberArray(arr) {
+      if (!Array.isArray(arr)) return [];
+      return [...new Set(arr.map(normalizeMemberName))];
+    }
+
+    const PARENTS_LIST = ["Thierry", "Loïc", "Greg", "Manue", "JP"];
 
     const CATEGORIES = [
       "Meuble", 
@@ -57,13 +81,56 @@
       "Divers", 
       "Non classé"
     ];
+
+    const CATEGORY_STYLES = {
+      "Meuble": {
+        btnActive: "bg-amber-500 text-slate-950 font-bold shadow",
+        btnInactive: "bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25",
+        banner: "bg-amber-950/60 border-amber-500/30 text-amber-300"
+      },
+      "Peinture": {
+        btnActive: "bg-purple-500 text-white font-bold shadow",
+        btnInactive: "bg-purple-500/15 text-purple-300 border border-purple-500/30 hover:bg-purple-500/25",
+        banner: "bg-purple-950/60 border-purple-500/30 text-purple-300"
+      },
+      "Décoration": {
+        btnActive: "bg-blue-500 text-white font-bold shadow",
+        btnInactive: "bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25",
+        banner: "bg-blue-950/60 border-blue-500/30 text-blue-300"
+      },
+      "Vaisselle Argenterie": {
+        btnActive: "bg-teal-400 text-slate-950 font-bold shadow",
+        btnInactive: "bg-teal-400/15 text-teal-300 border border-teal-400/30 hover:bg-teal-400/25",
+        banner: "bg-teal-950/60 border-teal-400/30 text-teal-300"
+      },
+      "Vaisselle divers": {
+        btnActive: "bg-cyan-400 text-slate-950 font-bold shadow",
+        btnInactive: "bg-cyan-400/15 text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/25",
+        banner: "bg-cyan-950/60 border-cyan-400/30 text-cyan-300"
+      },
+      "Électroménager": {
+        btnActive: "bg-orange-500 text-slate-950 font-bold shadow",
+        btnInactive: "bg-orange-500/15 text-orange-300 border border-orange-500/30 hover:bg-orange-500/25",
+        banner: "bg-orange-950/60 border-orange-500/30 text-orange-300"
+      },
+      "Divers": {
+        btnActive: "bg-indigo-500 text-white font-bold shadow",
+        btnInactive: "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/25",
+        banner: "bg-indigo-950/60 border-indigo-500/30 text-indigo-300"
+      },
+      "Non classé": {
+        btnActive: "bg-slate-400 text-slate-950 font-bold shadow",
+        btnInactive: "bg-slate-700/60 text-slate-300 border border-slate-600/40 hover:bg-slate-700",
+        banner: "bg-slate-900/90 border-slate-700/80 text-slate-300"
+      }
+    };
     
     let family = [
       "Thierry", "Thierry enfant",
       "Loïc", "Loïc enfant",
-      "Grégory", "Grégory enfant",
-      "Manuela", "Manuela enfant",
-      "Jean-Pascal", "Jean-Pascal enfant"
+      "Greg", "Greg enfant",
+      "Manue", "Manue enfant",
+      "JP", "JP enfant"
     ];
 
     const CONTROL_PERMISSIONS = {
@@ -71,12 +138,12 @@
       "Thierry enfant": ["Thierry enfant"],
       "Loïc": ["Loïc", "Loïc enfant"],
       "Loïc enfant": ["Loïc enfant"],
-      "Grégory": ["Grégory", "Grégory enfant"],
-      "Grégory enfant": ["Grégory enfant"],
-      "Manuela": ["Manuela", "Manuela enfant"],
-      "Manuela enfant": ["Manuela enfant"],
-      "Jean-Pascal": ["Jean-Pascal", "Jean-Pascal enfant"],
-      "Jean-Pascal enfant": ["Jean-Pascal enfant"]
+      "Greg": ["Greg", "Greg enfant"],
+      "Greg enfant": ["Greg enfant"],
+      "Manue": ["Manue", "Manue enfant"],
+      "Manue enfant": ["Manue enfant"],
+      "JP": ["JP", "JP enfant"],
+      "JP enfant": ["JP enfant"]
     };
 
     const EXCLUDED_ITEMS = [
@@ -85,7 +152,7 @@
 
     const PHOTO_CONFIG = [
       { prefix: "Décoration", count: 76, category: "Décoration" },
-      { prefix: "Mobilier", count: 49, category: "Meuble" },
+      { prefix: "Mobilier", count: 57, category: "Meuble" },
       { prefix: "Vaisselle-Argenterie", count: 64, category: "Vaisselle Argenterie" },
       { prefix: "Divers", count: 67, category: "Divers" },
       { prefix: "Peinture", count: 27, category: "Peinture" },
@@ -94,7 +161,6 @@
     ];
 
     let items = [];
-    let customItems = [];
     let currentUser = null;
     let authError = "";
     let activeFilterCategory = "Tous";
@@ -192,12 +258,15 @@
         
         items.forEach(item => {
           if (!item.isCustom && data[item.id]) {
-            item.interests = data[item.id].interests || [];
-            item.ifNobodyInterests = data[item.id].ifNobodyInterests || [];
+            item.interests = normalizeMemberArray(data[item.id].interests);
+            item.ifNobodyInterests = normalizeMemberArray(data[item.id].ifNobodyInterests);
             item.availableLater = data[item.id].availableLater || false;
             item.reservedFratrie = data[item.id].reservedFratrie || false;
             item.deleted = data[item.id].deleted || false;
-            item.comments = data[item.id].comments || [];
+            item.comments = (data[item.id].comments || []).map(c => ({
+              ...c,
+              author: normalizeMemberName(c.author)
+            }));
             if (data[item.id].category) item.category = data[item.id].category;
           }
         });
@@ -212,6 +281,11 @@
             `${encodeURIComponent(cData.imageFileName || '')}.jpg`
           ].filter(Boolean);
 
+          const normalizedComments = (cData.comments || []).map(c => ({
+            ...c,
+            author: normalizeMemberName(c.author)
+          }));
+
           if (!existing) {
             items.push({
               id: k,
@@ -223,19 +297,19 @@
               reservedFratrie: !!cData.reservedFratrie,
               deleted: !!cData.deleted,
               isCustom: true,
-              interests: cData.interests || [],
-              ifNobodyInterests: cData.ifNobodyInterests || [],
-              comments: cData.comments || []
+              interests: normalizeMemberArray(cData.interests),
+              ifNobodyInterests: normalizeMemberArray(cData.ifNobodyInterests),
+              comments: normalizedComments
             });
           } else {
             existing.name = cData.name || existing.name;
             existing.category = cData.category || existing.category;
-            existing.interests = cData.interests || [];
-            existing.ifNobodyInterests = cData.ifNobodyInterests || [];
+            existing.interests = normalizeMemberArray(cData.interests);
+            existing.ifNobodyInterests = normalizeMemberArray(cData.ifNobodyInterests);
             existing.availableLater = !!cData.availableLater;
             existing.reservedFratrie = !!cData.reservedFratrie;
             existing.deleted = !!cData.deleted;
-            existing.comments = cData.comments || [];
+            existing.comments = normalizedComments;
           }
         });
 
@@ -311,9 +385,11 @@
 
     function checkSavedAuth() {
       try {
-        const savedUser = localStorage.getItem('inv_user');
+        let savedUser = localStorage.getItem('inv_user');
         const savedPass = localStorage.getItem('inv_pass');
-        
+        if (savedUser) {
+          savedUser = normalizeMemberName(savedUser);
+        }
         if (savedUser && savedPass && USER_AUTH[savedUser] === savedPass) {
           currentUser = savedUser;
         }
@@ -724,13 +800,14 @@
           </div>
         </header>
 
-        <main class="max-w-[1600px] mx-auto p-3 space-y-4 pb-20">
-          <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80 flex flex-wrap items-center gap-2 shadow">
-            <span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
-              <i class="fa-solid fa-eye"></i> Consulter les choix de :
+        <main class="max-w-[1600px] mx-auto p-3 space-y-3 pb-20">
+          <!-- Ligne des membres -->
+          <div class="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/80 flex flex-wrap items-center gap-1.5 shadow">
+            <span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1 mr-1">
+              <i class="fa-solid fa-eye"></i> Choix de :
             </span>
             <button onclick="setMemberFilter('Tous')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition ${activeFilterMember === 'Tous' ? 'bg-amber-500 text-slate-900 shadow' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}">
-              Voir tout le monde
+              Tout le monde
             </button>
             ${family.map(f => {
               const count = items.filter(i => !i.deleted && (i.interests.includes(f) || (i.ifNobodyInterests && i.ifNobodyInterests.includes(f)))).length;
@@ -745,38 +822,47 @@
             }).join('')}
           </div>
 
-          <div class="flex flex-wrap items-center gap-1.5 pb-2 border-b border-slate-800">
-            <span class="text-xs text-slate-400 font-semibold mr-1">Filtre :</span>
-            <button onclick="setCategoryFilter('Tous')" class="px-2.5 py-1 rounded-full text-xs font-semibold ${activeFilterCategory === 'Tous' ? 'bg-amber-500 text-slate-900 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">Toutes</button>
+          <!-- Ligne unique de tous les filtres colorés -->
+          <div class="flex items-center gap-1.5 pb-2 border-b border-slate-800 flex-nowrap overflow-x-auto no-scrollbar">
+            <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider mr-1 shrink-0">Filtres :</span>
             
-            ${CATEGORIES.map(c => `
-              <button onclick="setCategoryFilter('${c}')" class="px-2.5 py-1 rounded-full text-xs font-semibold ${activeFilterCategory === c ? 'bg-amber-500 text-slate-900 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">${c}</button>
-            `).join('')}
+            <button onclick="setCategoryFilter('Tous')" class="px-2.5 py-1 rounded-full text-[11px] transition shrink-0 ${activeFilterCategory === 'Tous' ? 'bg-white text-slate-950 font-bold shadow' : 'bg-slate-800 text-slate-200 border border-slate-600 hover:bg-slate-700'}">
+              Toutes
+            </button>
+            
+            ${CATEGORIES.map(c => {
+              const st = CATEGORY_STYLES[c] || CATEGORY_STYLES["Non classé"];
+              return `
+                <button onclick="setCategoryFilter('${c}')" class="px-2.5 py-1 rounded-full text-[11px] transition shrink-0 ${activeFilterCategory === c ? st.btnActive : st.btnInactive}">
+                  ${c}
+                </button>
+              `;
+            }).join('')}
 
-            <button onclick="setCategoryFilter('IF_NOBODY')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1 ${activeFilterCategory === 'IF_NOBODY' ? 'bg-emerald-500 text-slate-950 font-bold shadow' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20'}">
+            <button onclick="setCategoryFilter('IF_NOBODY')" class="px-2.5 py-1 rounded-full text-[11px] transition flex items-center gap-1 shrink-0 ${activeFilterCategory === 'IF_NOBODY' ? 'bg-emerald-500 text-slate-950 font-bold shadow' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'}">
               <span>🟢 Si personne</span>
               <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'IF_NOBODY' ? 'bg-slate-950/30 text-slate-950' : 'bg-emerald-500/20 text-emerald-300'}">${ifNobodyCount}</span>
             </button>
 
-            <button onclick="setCategoryFilter('UNSELECTED')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1 ${activeFilterCategory === 'UNSELECTED' ? 'bg-sky-500 text-slate-950 font-bold shadow' : 'bg-sky-500/10 text-sky-400 border border-sky-500/30 hover:bg-sky-500/20'}">
+            <button onclick="setCategoryFilter('UNSELECTED')" class="px-2.5 py-1 rounded-full text-[11px] transition flex items-center gap-1 shrink-0 ${activeFilterCategory === 'UNSELECTED' ? 'bg-sky-500 text-slate-950 font-bold shadow' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25'}">
               <span>⚪ Non sélectionné</span>
               <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'UNSELECTED' ? 'bg-slate-950/30 text-slate-950' : 'bg-sky-500/20 text-sky-300'}">${unselectedCount}</span>
             </button>
 
-            <button onclick="setCategoryFilter('DISPO_LATER')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1 ${activeFilterCategory === 'DISPO_LATER' ? 'bg-yellow-300 text-slate-950 font-bold shadow' : 'bg-yellow-300/10 text-yellow-300 border border-yellow-300/30 hover:bg-yellow-300/20'}">
+            <button onclick="setCategoryFilter('DISPO_LATER')" class="px-2.5 py-1 rounded-full text-[11px] transition flex items-center gap-1 shrink-0 ${activeFilterCategory === 'DISPO_LATER' ? 'bg-yellow-300 text-slate-950 font-bold shadow' : 'bg-yellow-300/15 text-yellow-300 border border-yellow-300/30 hover:bg-yellow-300/25'}">
               <span>🟡 Aux Orchidées</span>
               <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'DISPO_LATER' ? 'bg-slate-950/30 text-slate-950' : 'bg-yellow-300/20 text-yellow-300'}">${dispoLaterCount}</span>
             </button>
 
             ${userIsParent ? `
-              <button onclick="setCategoryFilter('RESERVED_FRATRIE')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1 ${activeFilterCategory === 'RESERVED_FRATRIE' ? 'bg-rose-500 text-slate-950 font-bold shadow' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20'}">
-                <span>🔴 Réservé Fratrie</span>
+              <button onclick="setCategoryFilter('RESERVED_FRATRIE')" class="px-2.5 py-1 rounded-full text-[11px] transition flex items-center gap-1 shrink-0 ${activeFilterCategory === 'RESERVED_FRATRIE' ? 'bg-rose-500 text-slate-950 font-bold shadow' : 'bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25'}">
+                <span>🔴 Fratrie</span>
                 <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'RESERVED_FRATRIE' ? 'bg-slate-950/30 text-slate-950' : 'bg-rose-500/20 text-rose-300'}">${reservedFratrieCount}</span>
               </button>
             ` : ''}
 
             ${(currentUser === "Thierry" && deletedCount > 0) ? `
-              <button onclick="setCategoryFilter('DELETED')" class="px-2.5 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1 ${activeFilterCategory === 'DELETED' ? 'bg-slate-600 text-white font-bold shadow' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'}">
+              <button onclick="setCategoryFilter('DELETED')" class="px-2.5 py-1 rounded-full text-[11px] transition flex items-center gap-1 shrink-0 ${activeFilterCategory === 'DELETED' ? 'bg-slate-600 text-white font-bold shadow' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'}">
                 <span>🗑️ Supprimés</span>
                 <span class="px-1.5 py-0.2 text-[10px] rounded-full bg-slate-900 text-slate-300">${deletedCount}</span>
               </button>
@@ -789,18 +875,19 @@
               const commentCount = hasComments ? item.comments.length : 0;
               const ifNobodyList = item.ifNobodyInterests || [];
               const hasIfNobody = ifNobodyList.length > 0;
+              const catStyle = CATEGORY_STYLES[item.category] || CATEGORY_STYLES["Non classé"];
 
               return `
                 <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700/60 shadow flex flex-col relative group ${item.deleted ? 'opacity-60 border-dashed border-slate-600' : ''}">
-                  <!-- Bandeau Catégorie / Famille au-dessus de la photo -->
-                  <div class="bg-slate-900/90 border-b border-slate-700/80 px-2.5 py-1.5 flex items-center justify-between gap-2">
-                    <span class="text-xs font-bold uppercase tracking-wide text-amber-400 truncate">
-                      <i class="fa-solid fa-tag mr-1 text-[10px] opacity-80"></i>${item.category}
+                  <!-- Bandeau Catégorie coloré au-dessus de la photo -->
+                  <div class="border-b px-2.5 py-1 flex items-center justify-between gap-1.5 ${catStyle.banner}">
+                    <span class="text-[11px] font-bold uppercase tracking-wide truncate">
+                      <i class="fa-solid fa-tag mr-1 text-[9px] opacity-80"></i>${item.category}
                     </span>
                     ${currentUser === "Thierry" && !item.deleted ? `
                       <button 
                         onclick="openCategoryModal('${item.id}')" 
-                        class="bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-300 text-[9px] font-medium px-1.5 py-0.5 rounded transition flex items-center gap-1 border border-slate-600/50 shrink-0"
+                        class="bg-slate-900/70 hover:bg-amber-500 hover:text-slate-950 text-slate-200 text-[9px] font-medium px-1.5 py-0.5 rounded transition flex items-center gap-1 border border-slate-600/50 shrink-0"
                         title="Changer la catégorie"
                       >
                         <i class="fa-solid fa-pen-to-square"></i>
@@ -821,108 +908,109 @@
                     <div class="absolute top-2 right-2 z-10 flex items-center gap-1">
                       ${hasIfNobody ? `
                         <div class="flex items-center justify-center" title="J'en veux bien si personne (${ifNobodyList.join(', ')})">
-                          <span class="relative flex h-10 w-10">
+                          <span class="relative flex h-8 w-8">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
-                            <span class="relative inline-flex rounded-full h-10 w-10 bg-emerald-500 border-2 border-slate-950 shadow-[0_0_15px_#10b981]"></span>
+                            <span class="relative inline-flex rounded-full h-8 w-8 bg-emerald-500 border-2 border-slate-950 shadow-[0_0_12px_#10b981]"></span>
                           </span>
                         </div>
                       ` : ''}
 
                       ${item.availableLater ? `
                         <div class="flex items-center justify-center" title="Aux Orchidées">
-                          <span class="relative flex h-10 w-10">
+                          <span class="relative flex h-8 w-8">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-80"></span>
-                            <span class="relative inline-flex rounded-full h-10 w-10 bg-yellow-300 border-2 border-slate-950 shadow-[0_0_15px_#fde047]"></span>
+                            <span class="relative inline-flex rounded-full h-8 w-8 bg-yellow-300 border-2 border-slate-950 shadow-[0_0_12px_#fde047]"></span>
                           </span>
                         </div>
                       ` : ''}
 
                       ${item.reservedFratrie ? `
                         <div class="flex items-center justify-center" title="Réservé Fratrie">
-                          <span class="relative flex h-10 w-10">
+                          <span class="relative flex h-8 w-8">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-80"></span>
-                            <span class="relative inline-flex rounded-full h-10 w-10 bg-rose-500 border-2 border-slate-950 shadow-[0_0_15px_#f43f5e]"></span>
+                            <span class="relative inline-flex rounded-full h-8 w-8 bg-rose-500 border-2 border-slate-950 shadow-[0_0_12px_#f43f5e]"></span>
                           </span>
                         </div>
                       ` : ''}
                     </div>
                   </div>
 
-                  <div class="p-2.5 flex-1 flex flex-col justify-between space-y-2">
-                    <div>
-                      <div class="flex justify-between items-center gap-1 mb-1.5">
-                        <p class="text-[11px] text-slate-300 font-mono truncate" title="${item.name}">${item.name}</p>
-                        
-                        <div class="flex items-center gap-1 flex-wrap justify-end">
-                          ${!item.deleted ? `
+                  <div class="p-2 flex-1 flex flex-col justify-between space-y-2">
+                    <div class="space-y-1.5">
+                      <!-- Nom complet de la photo sans troncature -->
+                      <p class="text-[11px] text-slate-200 font-mono font-semibold break-words leading-tight">
+                        <i class="fa-regular fa-image text-slate-400 mr-1 text-[10px]"></i>${item.name}
+                      </p>
+
+                      <!-- Boutons d'actions compactés -->
+                      <div class="flex items-center gap-1 flex-wrap">
+                        ${!item.deleted ? `
+                          <button 
+                            onclick="openCommentsModal('${item.id}')" 
+                            class="text-[9px] font-bold px-1.5 py-0.5 rounded transition flex items-center gap-1 border ${
+                              hasComments 
+                                ? 'bg-purple-600 hover:bg-purple-500 text-white border-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.5)]' 
+                                : 'bg-slate-700/60 hover:bg-purple-600 hover:text-white text-slate-300 border-slate-600/50'
+                            }"
+                            title="Ajouter ou voir des remarques"
+                          >
+                            <i class="fa-solid fa-comment"></i>
+                            <span>${hasComments ? commentCount : 'Remarque'}</span>
+                          </button>
+
+                          ${userIsParent ? `
                             <button 
-                              onclick="openCommentsModal('${item.id}')" 
+                              onclick="toggleReservedFratrie('${item.id}')" 
                               class="text-[9px] font-bold px-1.5 py-0.5 rounded transition flex items-center gap-1 border ${
-                                hasComments 
-                                  ? 'bg-purple-600 hover:bg-purple-500 text-white border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.5)]' 
-                                  : 'bg-slate-700/60 hover:bg-purple-600 hover:text-white text-slate-300 border-slate-600/50'
+                                item.reservedFratrie 
+                                  ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-400 shadow' 
+                                  : 'bg-slate-700/60 hover:bg-rose-600 hover:text-white text-slate-300 border-slate-600/50'
                               }"
-                              title="Ajouter ou voir des remarques"
+                              title="Réserver à la Fratrie uniquement"
                             >
-                              <i class="fa-solid fa-comment"></i>
-                              <span>${hasComments ? commentCount : 'Remarque'}</span>
+                              <i class="fa-solid fa-user-lock"></i>
+                              <span>Fratrie</span>
+                            </button>
+                          ` : ''}
+
+                          ${currentUser === "Thierry" ? `
+                            <button 
+                              onclick="toggleAvailableLater('${item.id}')" 
+                              class="text-[9px] font-bold px-1.5 py-0.5 rounded transition flex items-center gap-1 border ${
+                                item.availableLater 
+                                  ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow' 
+                                  : 'bg-slate-700/60 hover:bg-rose-600 hover:text-white text-slate-300 border-slate-600/50'
+                              }"
+                              title="Indiquer Aux Orchidées"
+                            >
+                              <i class="fa-solid fa-clock"></i>
+                              <span>Aux Orchidées</span>
                             </button>
 
-                            ${userIsParent ? `
-                              <button 
-                                onclick="toggleReservedFratrie('${item.id}')" 
-                                class="text-[9px] font-bold px-1 py-0.5 rounded transition flex items-center gap-1 border ${
-                                  item.reservedFratrie 
-                                    ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-400 shadow' 
-                                    : 'bg-slate-700/60 hover:bg-rose-600 hover:text-white text-slate-300 border-slate-600/50'
-                                }"
-                                title="Réserver à la Fratrie uniquement"
-                              >
-                                <i class="fa-solid fa-user-lock"></i>
-                                <span>Fratrie</span>
-                              </button>
-                            ` : ''}
-
-                            ${currentUser === "Thierry" ? `
-                              <button 
-                                onclick="toggleAvailableLater('${item.id}')" 
-                                class="text-[9px] font-bold px-1 py-0.5 rounded transition flex items-center gap-1 border ${
-                                  item.availableLater 
-                                    ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow' 
-                                    : 'bg-slate-700/60 hover:bg-rose-600 hover:text-white text-slate-300 border-slate-600/50'
-                                }"
-                                title="Indiquer Aux Orchidées"
-                              >
-                                <i class="fa-solid fa-clock"></i>
-                                <span>Aux Orchidées</span>
-                              </button>
-
-                              <button 
-                                onclick="deleteItem('${item.id}')" 
-                                class="bg-rose-950/60 hover:bg-rose-600 text-rose-300 hover:text-white text-[9px] font-bold px-1.5 py-0.5 rounded transition flex items-center gap-1 border border-rose-800/50"
-                                title="Supprimer cet objet de l'inventaire"
-                              >
-                                <i class="fa-solid fa-trash-can"></i>
-                                <span>Supprimer</span>
-                              </button>
-                            ` : ''}
-                          ` : `
-                            ${currentUser === "Thierry" ? `
-                              <button 
-                                onclick="restoreItem('${item.id}')" 
-                                class="bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-bold px-2 py-0.5 rounded transition flex items-center gap-1 shadow"
-                                title="Restaurer cet objet dans l'inventaire"
-                              >
-                                <i class="fa-solid fa-rotate-left"></i>
-                                <span>Restaurer</span>
-                              </button>
-                            ` : ''}
-                          `}
-                        </div>
+                            <button 
+                              onclick="deleteItem('${item.id}')" 
+                              class="bg-rose-950/60 hover:bg-rose-600 text-rose-300 hover:text-white text-[9px] font-bold px-1.5 py-0.5 rounded transition flex items-center gap-1 border border-rose-800/50"
+                              title="Supprimer cet objet de l'inventaire"
+                            >
+                              <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                          ` : ''}
+                        ` : `
+                          ${currentUser === "Thierry" ? `
+                            <button 
+                              onclick="restoreItem('${item.id}')" 
+                              class="bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] font-bold px-2 py-0.5 rounded transition flex items-center gap-1 shadow"
+                              title="Restaurer cet objet dans l'inventaire"
+                            >
+                              <i class="fa-solid fa-rotate-left"></i>
+                              <span>Restaurer</span>
+                            </button>
+                          ` : ''}
+                        `}
                       </div>
                     </div>
 
-                    <div class="space-y-2 border-t border-slate-700/50 pt-1.5">
+                    <div class="space-y-1.5 border-t border-slate-700/50 pt-1.5">
                       <div class="space-y-1">
                         <p class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Intéressé(e)s :</p>
                         <div class="flex flex-wrap gap-1">
@@ -950,9 +1038,9 @@
                         </div>
                       </div>
 
-                      <div class="space-y-1 border-t border-slate-700/30 pt-1.5">
+                      <div class="space-y-1 border-t border-slate-700/30 pt-1">
                         <p class="text-[9px] uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1">
-                          <span>🟢 J'en veux bien si personne :</span>
+                          <span>🟢 Si personne :</span>
                         </p>
                         <div class="flex flex-wrap gap-1">
                           ${family.map(m => {
