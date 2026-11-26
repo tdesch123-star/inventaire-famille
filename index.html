@@ -70,6 +70,7 @@
     }
 
     const PARENTS_LIST = ["Thierry", "Loïc", "Greg", "Manue", "JP"];
+    const DEFAULT_BULKY_CATEGORIES = ["Meuble", "Électroménager"];
 
     const CATEGORIES = [
       "Meuble", 
@@ -157,6 +158,7 @@
     let items = [];
     let currentUser = null;
     let authError = "";
+    let grosObjetsOnly = false;
     let activeFilterCategory = "Tous";
     let activeFilterMember = "Tous";
     let lightboxIndex = null;
@@ -171,24 +173,41 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    function isItemBulky(item) {
+      if (!item) return false;
+      // Si Thierry a défini explicitement bulky (true ou false), on respecte son choix
+      if (typeof item.bulky === "boolean") {
+        return item.bulky;
+      }
+      // Sinon par défaut : Meuble et Électroménager sont considérés volumineux
+      return DEFAULT_BULKY_CATEGORIES.includes(item.category);
+    }
+
     function isItemFirstChoiceByAnyParent(item) {
       if (!item || !Array.isArray(item.interests)) return false;
-      // Uniquement les 1ers choix ("Intéressé(e)s") des parents masquent l'objet aux enfants.
-      // Les sélections dans "Moi, si personne n'en veut" (ifNobodyInterests) restent toujours visibles !
       return item.interests.some(member => PARENTS_LIST.includes(member));
     }
 
     function isItemVisibleForUser(item, user) {
       if (!item || item.deleted) return false;
+
+      // Mode intermédiaire "Gros objets uniquement" activé par Thierry :
+      // Affiche uniquement les objets volumineux qui n'ont pas encore été pris en 1er choix par la fratrie (ni réservés fratrie)
+      if (grosObjetsOnly) {
+        if (!isItemBulky(item)) return false;
+        if (item.reservedFratrie) return false;
+        if (isItemFirstChoiceByAnyParent(item)) return false;
+        return true;
+      }
+
       if (isParent(user)) return true;
 
-      // Si l'objet a été coché dans "Moi, si personne n'en veut" (et n'est pas un 1er choix d'un parent ni réservé fratrie), il reste visible
+      // Pour les enfants en mode normal : masquer uniquement ce qui est réservé fratrie OU choisi en 1er choix par un parent
       const hasIfNobody = Array.isArray(item.ifNobodyInterests) && item.ifNobodyInterests.length > 0;
       if (hasIfNobody && !item.reservedFratrie && !isItemFirstChoiceByAnyParent(item)) {
         return true;
       }
 
-      // Pour les enfants : masquer uniquement ce qui est réservé fratrie OU choisi en 1er choix par un parent
       return !item.reservedFratrie && !isItemFirstChoiceByAnyParent(item);
     }
 
@@ -229,6 +248,7 @@
             availableLater: false,
             reservedFratrie: false,
             deleted: false,
+            bulky: null,
             isCustom: false,
             interests: [],
             ifNobodyInterests: [],
@@ -268,6 +288,16 @@
     }
 
     function initRealtimeSync() {
+      // Écoute du mode "Gros objets uniquement"
+      db.ref('config/grosObjetsOnly').on('value', (snapshot) => {
+        grosObjetsOnly = !!snapshot.val();
+        if (grosObjetsOnly && activeFilterCategory === 'RESERVED_FRATRIE') {
+          activeFilterCategory = 'Tous';
+        }
+        render();
+      });
+
+      // Écoute de l'inventaire
       db.ref('inventory').on('value', (snapshot) => {
         const data = snapshot.val() || {};
         
@@ -278,6 +308,7 @@
             item.availableLater = data[item.id].availableLater || false;
             item.reservedFratrie = data[item.id].reservedFratrie || false;
             item.deleted = data[item.id].deleted || false;
+            item.bulky = (typeof data[item.id].bulky === "boolean") ? data[item.id].bulky : null;
             item.comments = (data[item.id].comments || []).map(c => ({
               ...c,
               author: normalizeMemberName(c.author)
@@ -304,6 +335,7 @@
           }));
 
           const validCategory = CATEGORIES.includes(cData.category) ? cData.category : 'Divers';
+          const bulkyVal = (typeof cData.bulky === "boolean") ? cData.bulky : null;
 
           if (!existing) {
             items.push({
@@ -315,6 +347,7 @@
               availableLater: !!cData.availableLater,
               reservedFratrie: !!cData.reservedFratrie,
               deleted: !!cData.deleted,
+              bulky: bulkyVal,
               isCustom: true,
               interests: normalizeMemberArray(cData.interests),
               ifNobodyInterests: normalizeMemberArray(cData.ifNobodyInterests),
@@ -328,6 +361,7 @@
             existing.availableLater = !!cData.availableLater;
             existing.reservedFratrie = !!cData.reservedFratrie;
             existing.deleted = !!cData.deleted;
+            existing.bulky = bulkyVal;
             existing.comments = normalizedComments;
           }
         });
@@ -337,7 +371,7 @@
     }
 
     function saveItemState(item) {
-      db.ref('inventory/' + item.id).set({
+      const payload = {
         name: item.name,
         interests: item.interests || [],
         ifNobodyInterests: item.ifNobodyInterests || [],
@@ -348,7 +382,26 @@
         comments: item.comments || [],
         isCustom: !!item.isCustom,
         imageFileName: item.imageFileName || ''
-      });
+      };
+      if (typeof item.bulky === "boolean") {
+        payload.bulky = item.bulky;
+      }
+      db.ref('inventory/' + item.id).set(payload);
+    }
+
+    function toggleGrosObjetsMode() {
+      if (currentUser !== "Thierry") return;
+      const nextState = !grosObjetsOnly;
+      db.ref('config/grosObjetsOnly').set(nextState);
+    }
+
+    function toggleBulky(id) {
+      if (currentUser !== "Thierry") return;
+      const item = items.find(i => i.id === id);
+      if (item) {
+        item.bulky = !isItemBulky(item);
+        saveItemState(item);
+      }
     }
 
     function createCustomItem(name, category, imageFileName) {
@@ -371,6 +424,7 @@
         availableLater: false,
         reservedFratrie: false,
         deleted: false,
+        bulky: null,
         isCustom: true,
         imageFileName: cleanFileName,
         interests: [],
@@ -603,6 +657,7 @@
           "Vignette", 
           "Nom de l'objet", 
           "Catégorie", 
+          "Volumineux",
           "Aux Orchidées", 
           "Réservé Fratrie", 
           "Non sélectionné",
@@ -645,20 +700,21 @@
 
           row.getCell(2).value = item.name;
           row.getCell(3).value = item.category;
-          row.getCell(4).value = item.availableLater ? "Oui" : "Non";
-          row.getCell(5).value = item.reservedFratrie ? "Oui" : "Non";
-          row.getCell(6).value = isUnselected ? "Oui" : "Non";
-          row.getCell(7).value = item.interests.length;
-          row.getCell(8).value = ifNobodyList.join(', ');
+          row.getCell(4).value = isItemBulky(item) ? "Oui" : "Non";
+          row.getCell(5).value = item.availableLater ? "Oui" : "Non";
+          row.getCell(6).value = item.reservedFratrie ? "Oui" : "Non";
+          row.getCell(7).value = isUnselected ? "Oui" : "Non";
+          row.getCell(8).value = item.interests.length;
+          row.getCell(9).value = ifNobodyList.join(', ');
 
           family.forEach((member, mIdx) => {
-            row.getCell(9 + mIdx).value = item.interests.includes(member) ? "Oui" : "";
-            row.getCell(9 + mIdx).alignment = { vertical: 'middle', horizontal: 'center' };
+            row.getCell(10 + mIdx).value = item.interests.includes(member) ? "Oui" : "";
+            row.getCell(10 + mIdx).alignment = { vertical: 'middle', horizontal: 'center' };
           });
 
           const commentsTxt = (item.comments || []).map(c => `[${c.author}] ${c.text}`).join(' | ');
-          row.getCell(9 + family.length).value = commentsTxt;
-          row.getCell(9 + family.length).alignment = { vertical: 'middle', wrapText: true };
+          row.getCell(10 + family.length).value = commentsTxt;
+          row.getCell(10 + family.length).alignment = { vertical: 'middle', wrapText: true };
 
           row.getCell(2).alignment = { vertical: 'middle' };
           row.getCell(3).alignment = { vertical: 'middle' };
@@ -666,7 +722,8 @@
           row.getCell(5).alignment = { vertical: 'middle', horizontal: 'center' };
           row.getCell(6).alignment = { vertical: 'middle', horizontal: 'center' };
           row.getCell(7).alignment = { vertical: 'middle', horizontal: 'center' };
-          row.getCell(8).alignment = { vertical: 'middle', wrapText: true };
+          row.getCell(8).alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell(9).alignment = { vertical: 'middle', wrapText: true };
 
           const imgData = await fetchImageBuffer(item.variants);
           if (imgData) {
@@ -692,7 +749,7 @@
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `synthese_inventaire_famille_${new Date().toISOString().slice(0,10)}.xlsx`;
+        link.download = `synthese_inventaire_famille_${grosObjetsOnly ? 'gros_objets_' : ''}${new Date().toISOString().slice(0,10)}.xlsx`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -766,6 +823,8 @@
         let matchCategory = false;
         if (activeFilterCategory === 'Tous' || activeFilterCategory === 'DELETED') {
           matchCategory = true;
+        } else if (activeFilterCategory === 'BULKY') {
+          matchCategory = isItemBulky(item);
         } else if (activeFilterCategory === 'DISPO_LATER') {
           matchCategory = item.availableLater;
         } else if (activeFilterCategory === 'RESERVED_FRATRIE') {
@@ -773,7 +832,6 @@
         } else if (activeFilterCategory === 'IF_NOBODY') {
           matchCategory = ifNobodyList.length > 0;
         } else if (activeFilterCategory === 'UNSELECTED') {
-          // Inclut aussi les objets cochés uniquement dans "Moi, si personne n'en veut"
           matchCategory = (item.interests.length === 0);
         } else {
           matchCategory = (item.category === activeFilterCategory);
@@ -783,12 +841,18 @@
         return matchCategory && matchMember;
       });
 
+      const bulkyCount = visibleBaseItems.filter(i => isItemBulky(i)).length;
       const dispoLaterCount = visibleBaseItems.filter(i => i.availableLater).length;
       const reservedFratrieCount = visibleBaseItems.filter(i => i.reservedFratrie).length;
       const ifNobodyCount = visibleBaseItems.filter(i => i.ifNobodyInterests && i.ifNobodyInterests.length > 0).length;
       const unselectedCount = visibleBaseItems.filter(i => i.interests.length === 0).length;
       const deletedCount = items.filter(i => i.deleted).length;
       const commentsModalItem = commentsModalItemId ? items.find(i => i.id === commentsModalItemId) : null;
+
+      // Catégories affichées dans la barre de filtres (si mode Gros objets actif, on garde les catégories pertinentes)
+      const displayedFilterCategories = grosObjetsOnly
+        ? CATEGORIES.filter(c => visibleBaseItems.some(i => i.category === c))
+        : CATEGORIES;
 
       app.innerHTML = `
         <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-30 p-3 shadow-lg">
@@ -800,6 +864,19 @@
             
             <div class="flex items-center gap-2 flex-wrap">
               ${currentUser === "Thierry" ? `
+                <button 
+                  onclick="toggleGrosObjetsMode()" 
+                  class="font-bold px-2.5 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow border ${
+                    grosObjetsOnly 
+                      ? 'bg-orange-500 hover:bg-orange-400 text-slate-950 border-orange-300 ring-2 ring-orange-400/50' 
+                      : 'bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600'
+                  }"
+                  title="Activer ou désactiver l'étape intermédiaire 'Gros objets uniquement' pour toute la famille"
+                >
+                  <i class="fa-solid fa-truck-ramp-box"></i>
+                  <span>Mode : Gros objets uniquement (${grosObjetsOnly ? 'ON' : 'OFF'})</span>
+                </button>
+
                 <button onclick="isAddingCustomItem = true; render();" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow">
                   <i class="fa-solid fa-plus"></i>
                   <span>Ajouter un objet</span>
@@ -823,6 +900,18 @@
         </header>
 
         <main class="max-w-[1600px] mx-auto p-3 space-y-3 pb-20">
+          ${grosObjetsOnly ? `
+            <div class="bg-orange-950/70 border border-orange-500/50 rounded-xl p-3 flex items-center gap-3 shadow-lg">
+              <div class="w-9 h-9 rounded-full bg-orange-500/20 border border-orange-400/40 flex items-center justify-center text-orange-300 shrink-0">
+                <i class="fa-solid fa-truck-ramp-box"></i>
+              </div>
+              <div class="text-xs text-orange-100 leading-relaxed">
+                <span class="font-bold text-orange-300 uppercase tracking-wide">Étape intermédiaire : Gros objets uniquement</span> — 
+                Merci à chacun de cocher rapidement ses choix uniquement sur les <b>meubles et objets volumineux</b> encore disponibles avant évacuation / don. Le reste du catalogue sera rouvert juste après.
+              </div>
+            </div>
+          ` : ''}
+
           <!-- Ligne des membres -->
           <div class="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/80 flex flex-wrap items-center gap-1.5 shadow">
             <span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1 mr-1">
@@ -852,7 +941,7 @@
               Toutes
             </button>
             
-            ${CATEGORIES.map(c => {
+            ${displayedFilterCategories.map(c => {
               const st = CATEGORY_STYLES[c] || CATEGORY_STYLES["Divers"];
               return `
                 <button onclick="setCategoryFilter('${c}')" class="px-2.5 py-1 rounded-full text-[11px] transition shrink-0 ${activeFilterCategory === c ? st.btnActive : st.btnInactive}">
@@ -860,6 +949,13 @@
                 </button>
               `;
             }).join('')}
+
+            ${currentUser === "Thierry" ? `
+              <button onclick="setCategoryFilter('BULKY')" class="px-2.5 py-1 rounded-full text-[11px] transition flex items-center gap-1 shrink-0 ${activeFilterCategory === 'BULKY' ? 'bg-orange-400 text-slate-950 font-bold shadow' : 'bg-orange-500/15 text-orange-300 border border-orange-500/30 hover:bg-orange-500/25'}">
+                <span>📦 Volumineux</span>
+                <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'BULKY' ? 'bg-slate-950/30 text-slate-950' : 'bg-orange-500/20 text-orange-300'}">${bulkyCount}</span>
+              </button>
+            ` : ''}
 
             <button onclick="setCategoryFilter('IF_NOBODY')" class="px-2.5 py-1 rounded-full text-[11px] transition flex items-center gap-1 shrink-0 ${activeFilterCategory === 'IF_NOBODY' ? 'bg-emerald-500 text-slate-950 font-bold shadow' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'}">
               <span>🟢 Moi, <span class="text-[9.5px] font-normal">si personne n'en veut</span></span>
@@ -876,7 +972,7 @@
               <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'DISPO_LATER' ? 'bg-slate-950/30 text-slate-950' : 'bg-yellow-300/20 text-yellow-300'}">${dispoLaterCount}</span>
             </button>
 
-            ${userIsParent ? `
+            ${(userIsParent && !grosObjetsOnly) ? `
               <button onclick="setCategoryFilter('RESERVED_FRATRIE')" class="px-2.5 py-1 rounded-full text-[11px] transition flex items-center gap-1 shrink-0 ${activeFilterCategory === 'RESERVED_FRATRIE' ? 'bg-rose-500 text-slate-950 font-bold shadow' : 'bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25'}">
                 <span>🔴 Fratrie</span>
                 <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'RESERVED_FRATRIE' ? 'bg-slate-950/30 text-slate-950' : 'bg-rose-500/20 text-rose-300'}">${reservedFratrieCount}</span>
@@ -897,6 +993,7 @@
               const commentCount = hasComments ? item.comments.length : 0;
               const ifNobodyList = item.ifNobodyInterests || [];
               const hasIfNobody = ifNobodyList.length > 0;
+              const itemBulky = isItemBulky(item);
               const catStyle = CATEGORY_STYLES[item.category] || CATEGORY_STYLES["Divers"];
 
               return `
@@ -1018,6 +1115,19 @@
                             >
                               <i class="fa-solid fa-clock"></i>
                               <span>Aux Orchidées</span>
+                            </button>
+
+                            <button 
+                              onclick="toggleBulky('${item.id}')" 
+                              class="text-[9px] font-bold px-1.5 py-0.5 rounded transition flex items-center gap-1 border ${
+                                itemBulky 
+                                  ? 'bg-orange-500 hover:bg-orange-400 text-slate-950 border-orange-300 shadow' 
+                                  : 'bg-slate-700/60 hover:bg-orange-500 hover:text-slate-950 text-slate-300 border-slate-600/50'
+                              }"
+                              title="Inclure ou exclure du mode 'Gros objets uniquement'"
+                            >
+                              <i class="fa-solid fa-truck-ramp-box"></i>
+                              <span>Volumineux</span>
                             </button>
                           ` : ''}
                         ` : `
