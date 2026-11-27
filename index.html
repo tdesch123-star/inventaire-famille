@@ -189,14 +189,15 @@
     function isItemVisibleForUser(item, user) {
       if (!item || item.deleted) return false;
 
-      // Option 1 : En mode "Gros objets uniquement", on restreint le périmètre aux objets volumineux,
-      // mais les parents continuent de voir tous les gros objets (y compris ceux déjà choisis par la fratrie),
-      // tandis que les enfants ne voient que les gros objets non encore pris par les parents.
+      // Les parents (fratrie) voient TOUJOURS tout le catalogue (gros meubles + petits objets)
+      // même lorsque le mode "Gros meubles uniquement" est activé.
+      if (isParent(user)) return true;
+
+      // Pour les enfants/petits-enfants, si le mode "Gros meubles uniquement" est ON,
+      // on n'affiche que les gros meubles non retenus par les parents.
       if (grosObjetsOnly && !isItemBulky(item)) {
         return false;
       }
-
-      if (isParent(user)) return true;
 
       const hasIfNobody = Array.isArray(item.ifNobodyInterests) && item.ifNobodyInterests.length > 0;
       if (hasIfNobody && !item.reservedFratrie && !isItemFirstChoiceByAnyParent(item)) {
@@ -385,7 +386,7 @@
       db.ref('inventory/_config_mode').set({
         grosObjetsOnly: grosObjetsOnly
       }).catch((err) => {
-        console.error("Erreur sauvegarde mode Gros objets :", err);
+        console.error("Erreur sauvegarde mode Gros meubles :", err);
       });
     }
 
@@ -651,7 +652,7 @@
           "Vignette", 
           "Nom de l'objet", 
           "Catégorie", 
-          "Volumineux",
+          "Gros meuble",
           "Aux Orchidées", 
           "Réservé Fratrie", 
           "Non sélectionné",
@@ -743,7 +744,7 @@
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `synthese_inventaire_famille_${grosObjetsOnly ? 'gros_objets_' : ''}${new Date().toISOString().slice(0,10)}.xlsx`;
+        link.download = `synthese_inventaire_famille_${new Date().toISOString().slice(0,10)}.xlsx`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -843,7 +844,9 @@
       const deletedCount = items.filter(i => i.deleted).length;
       const commentsModalItem = commentsModalItemId ? items.find(i => i.id === commentsModalItemId) : null;
 
-      const displayedFilterCategories = grosObjetsOnly
+      // Pour les enfants en mode Gros meubles uniquement, on n'affiche que les onglets de catégories ayant des objets visibles.
+      // Pour les parents, toutes les catégories restent affichées en permanence.
+      const displayedFilterCategories = (grosObjetsOnly && !userIsParent)
         ? CATEGORIES.filter(c => visibleBaseItems.some(i => i.category === c))
         : CATEGORIES;
 
@@ -864,10 +867,10 @@
                       ? 'bg-orange-500 hover:bg-orange-400 text-slate-950 border-orange-300 ring-2 ring-orange-400/50' 
                       : 'bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600'
                   }"
-                  title="Activer ou désactiver l'étape intermédiaire 'Gros objets uniquement' pour toute la famille"
+                  title="Activer ou désactiver le filtre 'Gros meubles uniquement' pour les enfants/petits-enfants"
                 >
                   <i class="fa-solid fa-truck-ramp-box"></i>
-                  <span>Mode : Gros objets uniquement (${grosObjetsOnly ? 'ON' : 'OFF'})</span>
+                  <span>Mode : Gros meubles uniquement (${grosObjetsOnly ? 'ON' : 'OFF'})</span>
                 </button>
 
                 <button onclick="isAddingCustomItem = true; render();" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow">
@@ -899,8 +902,13 @@
                 <i class="fa-solid fa-truck-ramp-box"></i>
               </div>
               <div class="text-xs text-orange-100 leading-relaxed">
-                <span class="font-bold text-orange-300 uppercase tracking-wide">Étape intermédiaire : Gros objets uniquement</span> — 
-                Merci à chacun de cocher rapidement ses choix uniquement sur les <b>meubles et objets volumineux</b> avant évacuation / don. Le reste du catalogue sera rouvert juste après.
+                ${userIsParent ? `
+                  <span class="font-bold text-orange-300 uppercase tracking-wide">Mode Gros meubles actif pour les enfants</span> — 
+                  En tant que parent, vous continuez d'accéder à <b>l'intégralité du catalogue</b> (et pouvez filtrer uniquement les gros meubles avec le bouton <b>« 📦 Gros meubles »</b>).
+                ` : `
+                  <span class="font-bold text-orange-300 uppercase tracking-wide">Étape 1 : Gros meubles uniquement</span> — 
+                  Merci à chacun de cocher rapidement ses choix uniquement sur les <b>gros meubles</b> encore disponibles avant évacuation / don. Le reste du catalogue sera rouvert juste après.
+                `}
               </div>
             </div>
           ` : ''}
@@ -943,9 +951,9 @@
               `;
             }).join('')}
 
-            ${currentUser === "Thierry" ? `
+            ${userIsParent ? `
               <button onclick="setCategoryFilter('BULKY')" class="px-2.5 py-1 rounded-full text-[11px] transition flex items-center gap-1 shrink-0 ${activeFilterCategory === 'BULKY' ? 'bg-orange-400 text-slate-950 font-bold shadow' : 'bg-orange-500/15 text-orange-300 border border-orange-500/30 hover:bg-orange-500/25'}">
-                <span>📦 Volumineux</span>
+                <span>📦 Gros meubles</span>
                 <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'BULKY' ? 'bg-slate-950/30 text-slate-950' : 'bg-orange-500/20 text-orange-300'}">${bulkyCount}</span>
               </button>
             ` : ''}
@@ -1117,10 +1125,10 @@
                                   ? 'bg-orange-500 hover:bg-orange-400 text-slate-950 border-orange-300 shadow' 
                                   : 'bg-slate-700/60 hover:bg-orange-500 hover:text-slate-950 text-slate-300 border-slate-600/50'
                               }"
-                              title="Inclure ou exclure du mode 'Gros objets uniquement'"
+                              title="Inclure ou exclure du mode 'Gros meubles uniquement'"
                             >
                               <i class="fa-solid fa-truck-ramp-box"></i>
-                              <span>Volumineux</span>
+                              <span>Gros meuble</span>
                             </button>
                           ` : ''}
                         ` : `
