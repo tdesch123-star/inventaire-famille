@@ -189,11 +189,11 @@
     function isItemVisibleForUser(item, user) {
       if (!item || item.deleted) return false;
 
-      if (grosObjetsOnly) {
-        if (!isItemBulky(item)) return false;
-        if (item.reservedFratrie) return false;
-        if (isItemFirstChoiceByAnyParent(item)) return false;
-        return true;
+      // Option 1 : En mode "Gros objets uniquement", on restreint le périmètre aux objets volumineux,
+      // mais les parents continuent de voir tous les gros objets (y compris ceux déjà choisis par la fratrie),
+      // tandis que les enfants ne voient que les gros objets non encore pris par les parents.
+      if (grosObjetsOnly && !isItemBulky(item)) {
+        return false;
       }
 
       if (isParent(user)) return true;
@@ -283,16 +283,11 @@
     }
 
     function initRealtimeSync() {
-      // Écoute de l'inventaire (y compris le nœud de configuration inventory/_config_mode)
       db.ref('inventory').on('value', (snapshot) => {
         const data = snapshot.val() || {};
 
-        // Récupération de l'état "Gros objets uniquement" stocké dans inventory/_config_mode
         if (data._config_mode && typeof data._config_mode.grosObjetsOnly === "boolean") {
           grosObjetsOnly = data._config_mode.grosObjetsOnly;
-          if (grosObjetsOnly && activeFilterCategory === 'RESERVED_FRATRIE') {
-            activeFilterCategory = 'Tous';
-          }
         }
         
         items.forEach(item => {
@@ -386,9 +381,6 @@
     function toggleGrosObjetsMode() {
       if (currentUser !== "Thierry") return;
       grosObjetsOnly = !grosObjetsOnly;
-      if (grosObjetsOnly && activeFilterCategory === 'RESERVED_FRATRIE') {
-        activeFilterCategory = 'Tous';
-      }
       render();
       db.ref('inventory/_config_mode').set({
         grosObjetsOnly: grosObjetsOnly
@@ -908,7 +900,7 @@
               </div>
               <div class="text-xs text-orange-100 leading-relaxed">
                 <span class="font-bold text-orange-300 uppercase tracking-wide">Étape intermédiaire : Gros objets uniquement</span> — 
-                Merci à chacun de cocher rapidement ses choix uniquement sur les <b>meubles et objets volumineux</b> encore disponibles avant évacuation / don. Le reste du catalogue sera rouvert juste après.
+                Merci à chacun de cocher rapidement ses choix uniquement sur les <b>meubles et objets volumineux</b> avant évacuation / don. Le reste du catalogue sera rouvert juste après.
               </div>
             </div>
           ` : ''}
@@ -973,7 +965,7 @@
               <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'DISPO_LATER' ? 'bg-slate-950/30 text-slate-950' : 'bg-yellow-300/20 text-yellow-300'}">${dispoLaterCount}</span>
             </button>
 
-            ${(userIsParent && !grosObjetsOnly) ? `
+            ${userIsParent ? `
               <button onclick="setCategoryFilter('RESERVED_FRATRIE')" class="px-2.5 py-1 rounded-full text-[11px] transition flex items-center gap-1 shrink-0 ${activeFilterCategory === 'RESERVED_FRATRIE' ? 'bg-rose-500 text-slate-950 font-bold shadow' : 'bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25'}">
                 <span>🔴 Fratrie</span>
                 <span class="px-1.5 py-0.2 text-[10px] rounded-full ${activeFilterCategory === 'RESERVED_FRATRIE' ? 'bg-slate-950/30 text-slate-950' : 'bg-rose-500/20 text-rose-300'}">${reservedFratrieCount}</span>
